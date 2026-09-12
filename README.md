@@ -42,15 +42,9 @@ in the panel, or `r` in the panel, runs a check now.
 ## Install
 
 ```bash
-cd ~/projects/omarchy-plugin-mgr
-chmod +x install-dev.sh bin/plugin-mgr
-./install-dev.sh
-omarchy restart shell
+omarchy plugin add https://github.com/BonesGit/omarchy-plugin-mgr
 omarchy plugin enable io.github.bonesgit.omarchy-plugin-mgr --section right --after work
 ```
-
-`install-dev.sh` copies (does not symlink) into
-`~/.config/omarchy/plugins/io.github.bonesgit.omarchy-plugin-mgr`. It does not restart the shell.
 
 Helper for the terminal:
 
