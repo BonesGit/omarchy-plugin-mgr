@@ -34,7 +34,7 @@
         "max": 168,
         "step": 1,
         "defaultValue": 24,
-        "description": "How often to fetch git remotes for installed third-party plugins. A check also runs when the shell starts."
+        "description": "How often to fetch git remotes for installed third-party plugins. Checks do not run on shell start; they wait until this interval has passed since the last check."
       }
     ]
   }

@@ -12,6 +12,15 @@ function configuredCheckMs(settings) {
   return configuredCheckHours(settings) * 3600 * 1000
 }
 
+function msUntilDue(checkedAt, checkMs) {
+  var last = Number(checkedAt || 0)
+  var interval = Number(checkMs || 0)
+  if (!last || !interval || !isFinite(last) || !isFinite(interval)) return 0
+  var remaining = last * 1000 + interval - Date.now()
+  if (remaining < 0) return 0
+  return remaining
+}
+
 function clipError(text) {
   var s = String(text || "").replace(/\s+/g, " ").trim()
   if (s.length > 240) s = s.slice(0, 237) + "..."

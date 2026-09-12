@@ -32,8 +32,10 @@ First-party rows can be enabled or disabled. They cannot be removed or git-updat
 - **Repo** — `xdg-open` the origin URL (or `repository` / `homepage` in the
   manifest)
 
-Periodic checks default to every 24 hours (bar setting `checkHours`). Right-click
-the pill, or `r` in the panel, runs a check now.
+Periodic checks default to every 24 hours (bar setting `checkHours`), counted
+from the last check stored in `~/.local/state/omarchy/plugin-mgr/last-check.json`.
+Shell start and plugin load do not fetch remotes. Right-click the pill, **Check**
+in the panel, or `r` in the panel, runs a check now.
 
 ## Install
 

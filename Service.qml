@@ -125,12 +125,27 @@ Item {
     load()
   }
 
+  function scheduleDue(fromCheck) {
+    if (!root.loaded || checkProc.running) return
+    var wait = Model.msUntilDue(root.checkedAt, root.checkMs)
+    if (fromCheck && wait <= 0) wait = root.checkMs
+    if (wait <= 0) {
+      root.check()
+      return
+    }
+    dueTimer.interval = Math.max(1000, Math.round(wait))
+    dueTimer.restart()
+  }
+
+  onCheckMsChanged: if (root.loaded) root.scheduleDue()
+
   Process {
     id: listProc
     stdout: StdioCollector {
       onStreamFinished: {
         root.listing = false
         root.applyPayload(text, listErr.text)
+        root.scheduleDue()
       }
     }
     stderr: StdioCollector { id: listErr }
@@ -145,6 +160,7 @@ Item {
       onStreamFinished: {
         root.checking = false
         root.applyPayload(text, checkErr.text)
+        root.scheduleDue(true)
       }
     }
     stderr: StdioCollector { id: checkErr }
@@ -190,17 +206,11 @@ Item {
   }
 
   Timer {
-    interval: 8000
-    running: true
+    id: dueTimer
+    interval: 86400000
+    running: false
     repeat: false
-    onTriggered: root.check()
-  }
-
-  Timer {
-    interval: root.checkMs
-    running: true
-    repeat: true
-    onTriggered: root.check()
+    onTriggered: root.scheduleDue()
   }
 
   IpcHandler {
