@@ -42,8 +42,20 @@ in the panel, or `r` in the panel, runs a check now.
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/BonesGit/omarchy-plugin-mgr
-omarchy plugin enable io.github.bonesgit.omarchy-plugin-mgr --section right --after work
+omarchy plugin add https://github.com/BonesGit/omarchy-plugin-mgr.git --enable
+```
+
+## Update
+
+```bash
+omarchy plugin update io.github.bonesgit.omarchy-plugin-mgr
+```
+Or update itself in the plugin panel.
+
+## Remove
+
+```bash
+omarchy plugin remove io.github.bonesgit.omarchy-plugin-mgr
 ```
 
 Helper for the terminal:
