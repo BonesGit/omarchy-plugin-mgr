@@ -222,14 +222,14 @@ Panel {
               Behavior on opacity { NumberAnimation { duration: 100 } }
 
               function arm() {
-                if (modelData.self === true || modelData.firstParty === true || root.busy) return
+                if (modelData.firstParty === true || root.busy) return
                 card._armed = true
                 disarm.restart()
               }
 
               function confirmRemove() {
                 if (!card._armed || root.busy) return
-                if (modelData.self === true || modelData.firstParty === true) return
+                if (modelData.firstParty === true) return
                 card._armed = false
                 disarm.stop()
                 if (root.service) root.service.removePlugin(modelData.id)

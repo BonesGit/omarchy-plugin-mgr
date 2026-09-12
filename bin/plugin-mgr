@@ -5,7 +5,6 @@ set -euo pipefail
 export GIT_TERMINAL_PROMPT=0
 export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -oBatchMode=yes}"
 
-SELF_ID="io.github.bonesgit.omarchy-plugin-mgr"
 PLUGINS_DIR="${HOME}/.config/omarchy/plugins"
 STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/omarchy/plugin-mgr"
 CACHE="${STATE_DIR}/last-check.json"
@@ -29,7 +28,7 @@ Usage: plugin-mgr <command> [id]
   enable <id>       omarchy plugin enable
   disable <id>      omarchy plugin disable
   update <id>       omarchy plugin update --yes
-  remove <id>       omarchy plugin remove --yes (refuses this plugin)
+  remove <id>       omarchy plugin remove --yes
   open <id>         xdg-open the github/repo URL
 EOF
 }
@@ -212,7 +211,6 @@ one_plugin_json() {
     --argjson update "$update" \
     --arg checkError "$check_error" \
     --argjson firstParty "$first_party" \
-    --argjson self "$([[ $id == "$SELF_ID" ]] && echo true || echo false)" \
     '{
       id: $id,
       name: $name,
@@ -228,7 +226,6 @@ one_plugin_json() {
       ahead: $ahead,
       updateAvailable: $update,
       checkError: $checkError,
-      self: $self
     }'
 }
 
@@ -447,7 +444,6 @@ cmd_update() {
 cmd_remove() {
   local id listed
   id=$(require_id "${1:-}")
-  [[ $id != "$SELF_ID" ]] || fail "refusing to remove $SELF_ID while it is running"
   listed=$(shell_list)
   if is_first_party "$id" "$listed"; then
     fail "refusing to remove first-party plugin '$id'"
