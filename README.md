@@ -1,21 +1,24 @@
 # Plugin Manager
 
-Omarchy bar widget that lists **third-party** shell plugins, with enable/disable,
-git update checks, update, remove, and a button that opens the repo.
+Omarchy bar widget that lists shell plugins in **Third Party** and **First Party**
+tabs, with enable/disable, git update checks, update, remove, and a button that
+opens the repo.
 
 Plugin id: `io.github.bonesgit.omarchy-plugin-mgr`
 
 ## What it shows
 
-Each installed third-party plugin (anything under `~/.config/omarchy/plugins/`
-that is not `omarchy.*`):
+**Third Party** is anything under `~/.config/omarchy/plugins/` that is not
+`omarchy.*`. **First Party** is the stock `omarchy.*` set.
+
+Each row:
 
 - name, id, version
 - enabled / disabled
-- git vs local-only
-- commits ahead of origin (after a check)
+- git vs local-only (third-party)
+- commits ahead of origin after a check (third-party)
 
-First-party widgets are ignored.
+First-party rows can be enabled or disabled. They cannot be removed or git-updated.
 
 ## Actions
 

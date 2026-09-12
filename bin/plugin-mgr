@@ -24,7 +24,7 @@ usage() {
   cat <<'EOF'
 Usage: plugin-mgr <command> [id]
 
-  list              Third-party plugins as JSON (merges last git check)
+  list              Installed plugins as JSON (merges last git check)
   check [id]        Fetch origin and compare HEAD vs FETCH_HEAD
   enable <id>       omarchy plugin enable
   disable <id>      omarchy plugin disable
@@ -134,12 +134,13 @@ one_plugin_json() {
   local dir
   dir=$(plugin_dir "$id")
 
-  local name version enabled kinds git repo homepage local_sha remote_sha ahead update check_error
+  local name version enabled kinds git repo homepage local_sha remote_sha ahead update check_error first_party
   name=""
   version=""
   enabled=false
   kinds="[]"
   git=false
+  first_party=false
   repo=""
   homepage=""
   local_sha=""
@@ -152,6 +153,7 @@ one_plugin_json() {
     name=$(jq -r --arg id "$id" '.[] | select(.id == $id) | .name // empty' <<<"$listed")
     enabled=$(jq -r --arg id "$id" '.[] | select(.id == $id) | .enabled // false' <<<"$listed")
     kinds=$(jq -c --arg id "$id" '.[] | select(.id == $id) | .kinds // []' <<<"$listed")
+    first_party=$(jq -r --arg id "$id" '.[] | select(.id == $id) | .firstParty // false' <<<"$listed")
   fi
 
   if [[ -d $dir ]]; then
@@ -170,6 +172,12 @@ one_plugin_json() {
   [[ -n $kinds ]] || kinds="[]"
   if [[ $enabled != true && $enabled != false ]]; then
     enabled=$(id_enabled_in_shell_json "$id")
+  fi
+  if [[ $first_party != true ]]; then
+    case "$id" in
+    omarchy.*) first_party=true ;;
+    *) first_party=false ;;
+    esac
   fi
 
   if [[ -n $cache ]]; then
@@ -203,6 +211,7 @@ one_plugin_json() {
     --argjson ahead "$ahead" \
     --argjson update "$update" \
     --arg checkError "$check_error" \
+    --argjson firstParty "$first_party" \
     --argjson self "$([[ $id == "$SELF_ID" ]] && echo true || echo false)" \
     '{
       id: $id,
@@ -211,6 +220,7 @@ one_plugin_json() {
       enabled: $enabled,
       kinds: $kinds,
       git: $git,
+      firstParty: $firstParty,
       repo: $repo,
       homepage: $homepage,
       localCommit: $local,
@@ -239,11 +249,34 @@ third_party_ids() {
   done
 }
 
+all_plugin_ids() {
+  local listed="$1"
+  local ids
+  ids=$(jq -r '.[].id // empty' <<<"$listed" 2>/dev/null || true)
+  if [[ -n $ids ]]; then
+    printf '%s\n' "$ids"
+    return
+  fi
+  fallback_ids
+}
+
+is_first_party() {
+  local id="$1"
+  local listed="${2:-}"
+  if [[ -n $listed ]] && jq -e --arg id "$id" '.[] | select(.id == $id) | .firstParty == true' <<<"$listed" >/dev/null 2>&1; then
+    return 0
+  fi
+  case "$id" in
+  omarchy.*) return 0 ;;
+  esac
+  return 1
+}
+
 cmd_list() {
   local listed cache ids id
   listed=$(shell_list)
   cache=$(read_cache)
-  ids=$(third_party_ids "$listed")
+  ids=$(all_plugin_ids "$listed")
   local items="[]"
   while IFS= read -r id || [[ -n ${id:-} ]]; do
     [[ -n $id ]] || continue
@@ -353,11 +386,13 @@ kinds_of() {
 }
 
 cmd_enable() {
-  local id
+  local id listed kinds
   id=$(require_id "${1:-}")
-  local kinds
-  kinds=$(kinds_of "$id")
-  if [[ $kinds == *bar-widget* ]]; then
+  listed=$(shell_list)
+  kinds=$(jq -r --arg id "$id" '.[] | select(.id == $id) | (.kinds // []) | join(",")' <<<"$listed")
+  if is_first_party "$id" "$listed"; then
+    omarchy plugin enable "$id"
+  elif [[ $kinds == *bar-widget* ]]; then
     omarchy plugin enable "$id" --section right
   else
     omarchy plugin enable "$id"
@@ -410,9 +445,13 @@ cmd_update() {
 }
 
 cmd_remove() {
-  local id
+  local id listed
   id=$(require_id "${1:-}")
   [[ $id != "$SELF_ID" ]] || fail "refusing to remove $SELF_ID while it is running"
+  listed=$(shell_list)
+  if is_first_party "$id" "$listed"; then
+    fail "refusing to remove first-party plugin '$id'"
+  fi
   omarchy plugin remove "$id" --yes
   cmd_list
 }

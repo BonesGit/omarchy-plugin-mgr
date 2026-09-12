@@ -30,7 +30,7 @@ Item {
 
   readonly property int checkMs: Model.configuredCheckMs(settings)
   readonly property int updateCount: Model.updateCount(plugins)
-  readonly property int pluginCount: plugins ? plugins.length : 0
+  readonly property int pluginCount: Model.thirdPartyCount(plugins)
   readonly property bool busy: listing || checking || busyId !== ""
 
   readonly property string script:

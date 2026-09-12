@@ -27,6 +27,20 @@ function updateCount(plugins) {
   return n
 }
 
+function filterByFirstParty(plugins, firstParty) {
+  var out = []
+  var list = plugins || []
+  var want = !!firstParty
+  for (var i = 0; i < list.length; i++) {
+    if (list[i] && (list[i].firstParty === true) === want) out.push(list[i])
+  }
+  return out
+}
+
+function thirdPartyCount(plugins) {
+  return filterByFirstParty(plugins, false).length
+}
+
 function gitCount(plugins) {
   var n = 0
   var list = plugins || []
@@ -66,6 +80,7 @@ function idLine(p) {
 
 function gitLine(p) {
   if (!p) return ""
+  if (p.firstParty === true) return ""
   if (!p.git) return "local"
   if (p.checkError) return "check failed"
   var sha = p.localCommit || ""

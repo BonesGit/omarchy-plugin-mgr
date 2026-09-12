@@ -18,7 +18,9 @@ Panel {
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color dim: Qt.darker(foreground, 1.4)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
+  property string partyTab: "third"
   readonly property var plugins: service && service.plugins ? service.plugins : []
+  readonly property var visiblePlugins: Model.filterByFirstParty(plugins, partyTab === "first")
   readonly property bool loaded: service ? service.loaded : false
   readonly property bool listing: service ? service.listing : false
   readonly property bool checking: service ? service.checking : false
@@ -138,15 +140,39 @@ Panel {
           }
         }
 
+        Item {
+          width: parent.width
+          implicitHeight: Style.spacing.controlHeight
+          height: implicitHeight
+
+          ButtonGroup {
+            id: partyTabs
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            focusable: false
+            foreground: root.foreground
+            background: "transparent"
+            accent: Color.accent
+            fontFamily: root.fontFamily
+            fontSize: Style.font.caption
+            value: root.partyTab
+            options: [
+              { value: "third", label: "Third Party" },
+              { value: "first", label: "First Party" }
+            ]
+            onChanged: function(v) { root.partyTab = v }
+          }
+        }
+
         PanelSeparator { width: parent.width }
 
         Text {
           width: parent.width
-          visible: root.plugins.length === 0
+          visible: root.visiblePlugins.length === 0
           horizontalAlignment: Text.AlignHCenter
           topPadding: Style.space(22)
           bottomPadding: Style.space(22)
-          text: !root.loaded ? "Reading plugins\u2026" : "No third-party plugins"
+          text: !root.loaded ? "Reading plugins\u2026" : (root.partyTab === "first" ? "No first-party plugins" : "No third-party plugins")
           wrapMode: Text.WordWrap
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
@@ -154,13 +180,25 @@ Panel {
           opacity: 0.55
         }
 
-        Column {
+        Flickable {
+          id: pluginScroll
           width: parent.width
-          spacing: Style.space(6)
-          visible: root.plugins.length > 0
+          visible: root.visiblePlugins.length > 0
+          implicitHeight: Math.min(pluginList.implicitHeight, Style.space(480))
+          height: implicitHeight
+          contentWidth: width
+          contentHeight: pluginList.implicitHeight
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+          interactive: contentHeight > height
+
+          Column {
+            id: pluginList
+            width: pluginScroll.width
+            spacing: Style.space(6)
 
           Repeater {
-            model: root.plugins
+            model: root.visiblePlugins
             delegate: BorderSurface {
               id: card
               width: parent.width
@@ -184,7 +222,7 @@ Panel {
               Behavior on opacity { NumberAnimation { duration: 100 } }
 
               function armOrRemove() {
-                if (modelData.self === true || root.busy) return
+                if (modelData.self === true || modelData.firstParty === true || root.busy) return
                 if (card._armed) {
                   card._armed = false
                   disarm.stop()
@@ -334,6 +372,7 @@ Panel {
                 }
               }
             }
+          }
           }
         }
 

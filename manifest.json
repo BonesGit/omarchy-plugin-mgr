@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "author": "BonesGit",
   "license": "MIT",
-  "description": "List third-party Omarchy shell plugins, enable or disable them, and check git remotes for updates.",
+  "description": "List first- and third-party Omarchy shell plugins, enable or disable them, and check git remotes for updates.",
   "homepage": "https://github.com/BonesGit/omarchy-plugin-mgr",
   "repository": "https://github.com/BonesGit/omarchy-plugin-mgr",
   "kinds": [
@@ -18,7 +18,7 @@
   },
   "barWidget": {
     "displayName": "Plugins",
-    "description": "Third-party plugin list with enable, update, remove, and repo links.",
+    "description": "First- and third-party plugin list with enable, update, remove, and repo links.",
     "category": "System",
     "allowMultiple": false,
     "defaultSection": "right",
