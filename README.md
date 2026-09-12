@@ -26,7 +26,7 @@ First-party rows can be enabled or disabled. They cannot be removed or git-updat
 - **Check** — `git fetch origin HEAD` then `rev-list HEAD..FETCH_HEAD` (same
   comparison `omarchy plugin update` uses)
 - **Update** — `omarchy plugin update <id> --yes`
-- **Remove** — right-click a row twice (second click within 4s)
+- **Remove** — right-click a row to arm it (urgent border, 4s), then left-click **Remove**
 - **Repo** — `xdg-open` the origin URL (or `repository` / `homepage` in the
   manifest)
 

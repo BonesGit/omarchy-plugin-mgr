@@ -221,31 +221,27 @@ Panel {
               Behavior on color { ColorAnimation { duration: 100 } }
               Behavior on opacity { NumberAnimation { duration: 100 } }
 
-              function armOrRemove() {
+              function arm() {
                 if (modelData.self === true || modelData.firstParty === true || root.busy) return
-                if (card._armed) {
-                  card._armed = false
-                  disarm.stop()
-                  if (root.service) root.service.removePlugin(modelData.id)
-                } else {
-                  card._armed = true
-                  disarm.restart()
-                }
+                card._armed = true
+                disarm.restart()
+              }
+
+              function confirmRemove() {
+                if (!card._armed || root.busy) return
+                if (modelData.self === true || modelData.firstParty === true) return
+                card._armed = false
+                disarm.stop()
+                if (root.service) root.service.removePlugin(modelData.id)
               }
 
               MouseArea {
                 anchors.fill: parent
                 acceptedButtons: Qt.RightButton
-                onClicked: card.armOrRemove()
+                onClicked: card.arm()
               }
 
               HoverHandler { id: cardHover }
-
-              PanelToolTip {
-                visible: cardHover.hovered && card._armed
-                text: "Right-click again to remove"
-                fontFamily: root.fontFamily
-              }
 
               Timer {
                 id: disarm
@@ -370,6 +366,20 @@ Panel {
                     }
                   }
                 }
+              }
+
+              Button {
+                visible: card._armed
+                anchors.centerIn: parent
+                z: 2
+                text: "Remove"
+                tooltipText: "Remove this plugin"
+                foreground: Color.urgent
+                accent: Color.urgent
+                fontFamily: root.fontFamily
+                fontSize: Style.font.caption
+                enabled: !root.busy
+                onClicked: card.confirmRemove()
               }
             }
           }
