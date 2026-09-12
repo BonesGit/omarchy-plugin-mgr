@@ -6,6 +6,8 @@ opens the repo.
 
 Plugin id: `io.github.bonesgit.omarchy-plugin-mgr`
 
+![Plugin Manager](preview.png)
+
 ## What it shows
 
 **Third Party** is anything under `~/.config/omarchy/plugins/` that is not
