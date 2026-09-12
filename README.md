@@ -18,6 +18,8 @@ Each row:
 - git vs local-only (third-party)
 - commits ahead of origin after a check (third-party)
 
+Filter box next to the tabs matches name or id on both tabs.
+
 First-party rows can be enabled or disabled. They cannot be removed or git-updated.
 
 ## Actions

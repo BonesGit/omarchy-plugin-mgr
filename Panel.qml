@@ -19,8 +19,9 @@ Panel {
   readonly property color dim: Qt.darker(foreground, 1.4)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   property string partyTab: "third"
+  property string pluginQuery: ""
   readonly property var plugins: service && service.plugins ? service.plugins : []
-  readonly property var visiblePlugins: Model.filterByFirstParty(plugins, partyTab === "first")
+  readonly property var visiblePlugins: Model.filterPlugins(plugins, partyTab === "first", pluginQuery)
   readonly property bool loaded: service ? service.loaded : false
   readonly property bool listing: service ? service.listing : false
   readonly property bool checking: service ? service.checking : false
@@ -73,6 +74,7 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
+      blocked: searchField.activeFocus
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) {
@@ -142,12 +144,14 @@ Panel {
 
         Item {
           width: parent.width
-          implicitHeight: Style.spacing.controlHeight
+          implicitHeight: Math.max(Style.spacing.controlHeight, searchField.implicitHeight)
           height: implicitHeight
 
           ButtonGroup {
             id: partyTabs
             anchors.left: parent.left
+            anchors.right: searchBox.left
+            anchors.rightMargin: Style.space(8)
             anchors.verticalCenter: parent.verticalCenter
             focusable: false
             foreground: root.foreground
@@ -162,6 +166,57 @@ Panel {
             ]
             onChanged: function(v) { root.partyTab = v }
           }
+
+          Item {
+            id: searchBox
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            width: Style.space(176)
+            implicitHeight: searchField.implicitHeight
+            height: implicitHeight
+
+            TextField {
+              id: searchField
+              anchors.fill: parent
+              placeholderText: "Filter"
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              foreground: root.foreground
+              horizontalPadding: Style.spacing.controlGap
+              verticalPadding: Style.spacing.controlPaddingY
+              rightPadding: horizontalPadding + (clearBtn.visible ? clearBtn.width : 0)
+              text: root.pluginQuery
+              onTextChanged: if (text !== root.pluginQuery) root.pluginQuery = text
+              Keys.onEscapePressed: function(event) {
+                if (text !== "") {
+                  text = ""
+                  event.accepted = true
+                } else {
+                  keyCatcher.forceActiveFocus()
+                  event.accepted = true
+                }
+              }
+            }
+
+            PanelActionButton {
+              id: clearBtn
+              visible: searchField.text !== ""
+              anchors.right: parent.right
+              anchors.rightMargin: Style.space(2)
+              anchors.verticalCenter: parent.verticalCenter
+              z: 2
+              iconText: "󰅙"
+              tooltipText: "Clear filter"
+              foreground: root.dim
+              hoverColor: root.foreground
+              fontFamily: root.fontFamily
+              fontSize: Style.font.caption
+              onClicked: {
+                searchField.text = ""
+                searchField.forceActiveFocus()
+              }
+            }
+          }
         }
 
         PanelSeparator { width: parent.width }
@@ -172,7 +227,7 @@ Panel {
           horizontalAlignment: Text.AlignHCenter
           topPadding: Style.space(22)
           bottomPadding: Style.space(22)
-          text: !root.loaded ? "Reading plugins\u2026" : (root.partyTab === "first" ? "No first-party plugins" : "No third-party plugins")
+          text: !root.loaded ? "Reading plugins\u2026" : (String(root.pluginQuery).trim() !== "" ? "No matching plugins" : (root.partyTab === "first" ? "No first-party plugins" : "No third-party plugins"))
           wrapMode: Text.WordWrap
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption

@@ -37,6 +37,26 @@ function filterByFirstParty(plugins, firstParty) {
   return out
 }
 
+function matchesQuery(p, query) {
+  var q = String(query || "").trim().toLowerCase()
+  if (!q) return true
+  if (!p) return false
+  var name = String(p.name || "").toLowerCase()
+  var id = String(p.id || "").toLowerCase()
+  return name.indexOf(q) !== -1 || id.indexOf(q) !== -1
+}
+
+function filterPlugins(plugins, firstParty, query) {
+  var list = filterByFirstParty(plugins, firstParty)
+  var q = String(query || "").trim()
+  if (!q) return list
+  var out = []
+  for (var i = 0; i < list.length; i++) {
+    if (matchesQuery(list[i], q)) out.push(list[i])
+  }
+  return out
+}
+
 function thirdPartyCount(plugins) {
   return filterByFirstParty(plugins, false).length
 }
