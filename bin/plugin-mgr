@@ -1,0 +1,442 @@
+#!/usr/bin/env bash
+# Third-party Omarchy plugin inventory, git update checks, and actions.
+set -euo pipefail
+
+export GIT_TERMINAL_PROMPT=0
+export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -oBatchMode=yes}"
+
+SELF_ID="io.github.bonesgit.omarchy-plugin-mgr"
+PLUGINS_DIR="${HOME}/.config/omarchy/plugins"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/omarchy/plugin-mgr"
+CACHE="${STATE_DIR}/last-check.json"
+SHELL_JSON="${HOME}/.config/omarchy/shell.json"
+
+fail() {
+  echo "plugin-mgr: $*" >&2
+  exit 1
+}
+
+valid_id() {
+  [[ $1 =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && $1 != *..* ]]
+}
+
+usage() {
+  cat <<'EOF'
+Usage: plugin-mgr <command> [id]
+
+  list              Third-party plugins as JSON (merges last git check)
+  check [id]        Fetch origin and compare HEAD vs FETCH_HEAD
+  enable <id>       omarchy plugin enable
+  disable <id>      omarchy plugin disable
+  update <id>       omarchy plugin update --yes
+  remove <id>       omarchy plugin remove --yes (refuses this plugin)
+  open <id>         xdg-open the github/repo URL
+EOF
+}
+
+mkdir -p "$STATE_DIR"
+
+empty_cache() {
+  printf '%s\n' '{"checkedAt":0,"plugins":{}}'
+}
+
+read_cache() {
+  if [[ -f $CACHE ]]; then
+    cat "$CACHE"
+  else
+    empty_cache
+  fi
+}
+
+write_cache() {
+  local tmp
+  tmp=$(mktemp "$STATE_DIR/last-check.XXXXXX")
+  printf '%s\n' "$1" >"$tmp"
+  mv "$tmp" "$CACHE"
+}
+
+github_https() {
+  local url="${1:-}"
+  url="${url%.git}"
+  case "$url" in
+  git@github.com:*)
+    echo "https://github.com/${url#git@github.com:}"
+    ;;
+  ssh://git@github.com/*)
+    echo "https://github.com/${url#ssh://git@github.com/}"
+    ;;
+  https://github.com/* | http://github.com/* | https://gitlab.com/* | https://codeberg.org/*)
+    echo "$url"
+    ;;
+  *)
+    echo "$url"
+    ;;
+  esac
+}
+
+plugin_dir() {
+  echo "$PLUGINS_DIR/$1"
+}
+
+shell_list() {
+  omarchy plugin list --json 2>/dev/null || echo "[]"
+}
+
+fallback_ids() {
+  [[ -d $PLUGINS_DIR ]] || return 0
+  find "$PLUGINS_DIR" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) ! -name '.*' -printf '%f\n' | sort
+}
+
+id_enabled_in_shell_json() {
+  local id="$1"
+  [[ -f $SHELL_JSON ]] || { echo false; return; }
+  jq -e --arg id "$id" '
+    (.bar.layout.left + .bar.layout.center + .bar.layout.right + .plugins)
+    | map(.id // empty) | index($id) != null
+  ' "$SHELL_JSON" >/dev/null 2>&1 && echo true || echo false
+}
+
+manifest_field() {
+  local dir="$1" key="$2"
+  local man="$dir/manifest.json"
+  [[ -f $man ]] || { echo ""; return; }
+  jq -r --arg k "$key" '.[$k] // empty' "$man" 2>/dev/null || true
+}
+
+repo_for() {
+  local dir="$1"
+  local url=""
+  if [[ -d $dir/.git ]]; then
+    url=$(git -C "$dir" remote get-url origin 2>/dev/null || true)
+  fi
+  if [[ -z $url ]]; then
+    url=$(manifest_field "$dir" repository)
+  fi
+  if [[ -z $url ]]; then
+    url=$(manifest_field "$dir" homepage)
+  fi
+  github_https "$url"
+}
+
+short_sha() {
+  local sha="$1"
+  if [[ ${#sha} -ge 7 ]]; then
+    echo "${sha:0:7}"
+  else
+    echo "$sha"
+  fi
+}
+
+one_plugin_json() {
+  local id="$1"
+  local listed="${2:-}"
+  local cache="${3:-}"
+  local dir
+  dir=$(plugin_dir "$id")
+
+  local name version enabled kinds git repo homepage local_sha remote_sha ahead update check_error
+  name=""
+  version=""
+  enabled=false
+  kinds="[]"
+  git=false
+  repo=""
+  homepage=""
+  local_sha=""
+  remote_sha=""
+  ahead=0
+  update=false
+  check_error=""
+
+  if [[ -n $listed ]]; then
+    name=$(jq -r --arg id "$id" '.[] | select(.id == $id) | .name // empty' <<<"$listed")
+    enabled=$(jq -r --arg id "$id" '.[] | select(.id == $id) | .enabled // false' <<<"$listed")
+    kinds=$(jq -c --arg id "$id" '.[] | select(.id == $id) | .kinds // []' <<<"$listed")
+  fi
+
+  if [[ -d $dir ]]; then
+    [[ -n $name ]] || name=$(manifest_field "$dir" name)
+    version=$(manifest_field "$dir" version)
+    homepage=$(manifest_field "$dir" homepage)
+    repo=$(repo_for "$dir")
+    if [[ -d $dir/.git ]]; then
+      git=true
+      local_sha=$(git -C "$dir" rev-parse HEAD 2>/dev/null || true)
+    fi
+  fi
+
+  [[ -n $name ]] || name="$id"
+  [[ -n $version ]] || version=""
+  [[ -n $kinds ]] || kinds="[]"
+  if [[ $enabled != true && $enabled != false ]]; then
+    enabled=$(id_enabled_in_shell_json "$id")
+  fi
+
+  if [[ -n $cache ]]; then
+    ahead=$(jq -r --arg id "$id" '.plugins[$id].ahead // 0' <<<"$cache")
+    remote_sha=$(jq -r --arg id "$id" '.plugins[$id].remote // empty' <<<"$cache")
+    check_error=$(jq -r --arg id "$id" '.plugins[$id].error // empty' <<<"$cache")
+    local cached_local
+    cached_local=$(jq -r --arg id "$id" '.plugins[$id].local // empty' <<<"$cache")
+    if [[ -n $cached_local && -n $local_sha && $cached_local != "$local_sha" ]]; then
+      ahead=0
+      remote_sha=""
+      check_error=""
+    fi
+  fi
+  [[ $ahead =~ ^[0-9]+$ ]] || ahead=0
+  if [[ $git == true && $ahead -gt 0 ]]; then
+    update=true
+  fi
+
+  jq -nc \
+    --arg id "$id" \
+    --arg name "$name" \
+    --arg version "$version" \
+    --argjson enabled "$enabled" \
+    --argjson kinds "$kinds" \
+    --argjson git "$git" \
+    --arg repo "$repo" \
+    --arg homepage "$homepage" \
+    --arg local "$(short_sha "$local_sha")" \
+    --arg remote "$(short_sha "$remote_sha")" \
+    --argjson ahead "$ahead" \
+    --argjson update "$update" \
+    --arg checkError "$check_error" \
+    --argjson self "$([[ $id == "$SELF_ID" ]] && echo true || echo false)" \
+    '{
+      id: $id,
+      name: $name,
+      version: $version,
+      enabled: $enabled,
+      kinds: $kinds,
+      git: $git,
+      repo: $repo,
+      homepage: $homepage,
+      localCommit: $local,
+      remoteCommit: $remote,
+      ahead: $ahead,
+      updateAvailable: $update,
+      checkError: $checkError,
+      self: $self
+    }'
+}
+
+third_party_ids() {
+  local listed="$1"
+  local ids
+  ids=$(jq -r '.[] | select(.firstParty == false) | .id' <<<"$listed" 2>/dev/null || true)
+  if [[ -n $ids ]]; then
+    printf '%s\n' "$ids"
+    return
+  fi
+  local id
+  for id in $(fallback_ids); do
+    case "$id" in
+    omarchy.*) continue ;;
+    *) echo "$id" ;;
+    esac
+  done
+}
+
+cmd_list() {
+  local listed cache ids id
+  listed=$(shell_list)
+  cache=$(read_cache)
+  ids=$(third_party_ids "$listed")
+  local items="[]"
+  while IFS= read -r id || [[ -n ${id:-} ]]; do
+    [[ -n $id ]] || continue
+    items=$(jq -c --argjson item "$(one_plugin_json "$id" "$listed" "$cache")" '. + [$item]' <<<"$items")
+  done <<<"$ids" || true
+  local checkedAt
+  checkedAt=$(jq -r '.checkedAt // 0' <<<"$cache")
+  [[ $checkedAt =~ ^[0-9]+$ ]] || checkedAt=0
+  jq -nc --argjson plugins "$items" --argjson checkedAt "$checkedAt" \
+    '{ok: true, checkedAt: $checkedAt, plugins: $plugins}'
+  return 0
+}
+
+check_one() {
+  local id="$1"
+  local dir
+  dir=$(plugin_dir "$id")
+  valid_id "$id" || fail "invalid plugin id '$id'"
+  [[ -d $dir ]] || fail "plugin '$id' is not installed"
+  if [[ ! -d $dir/.git ]]; then
+    jq -nc --arg id "$id" '{id: $id, git: false, ahead: 0, error: "not a git checkout"}'
+    return 0
+  fi
+
+  local local_sha remote_sha ahead error
+  local_sha=$(git -C "$dir" rev-parse HEAD 2>/dev/null || true)
+  remote_sha=""
+  ahead=0
+  error=""
+
+  local errf
+  errf=$(mktemp "$STATE_DIR/fetch.XXXXXX")
+  if ! git -C "$dir" fetch --quiet origin HEAD 2>"$errf"; then
+    error=$(tr '\n' ' ' <"$errf" | sed 's/[[:space:]]\+/ /g')
+    [[ -n $error ]] || error="fetch failed"
+  else
+    remote_sha=$(git -C "$dir" rev-parse -q FETCH_HEAD 2>/dev/null || true)
+    if [[ -n $local_sha && -n $remote_sha ]]; then
+      ahead=$(git -C "$dir" rev-list --count HEAD..FETCH_HEAD 2>/dev/null || echo 0)
+    fi
+  fi
+  rm -f "$errf"
+  [[ $ahead =~ ^[0-9]+$ ]] || ahead=0
+
+  jq -nc \
+    --arg id "$id" \
+    --arg local "$local_sha" \
+    --arg remote "$remote_sha" \
+    --argjson ahead "$ahead" \
+    --arg error "$error" \
+    '{id: $id, git: true, local: $local, remote: $remote, ahead: $ahead, error: $error}'
+}
+
+merge_check() {
+  local cache result now
+  cache=$(read_cache)
+  result="$1"
+  now=$(date +%s)
+  jq -c --argjson now "$now" --argjson r "$result" '
+    .checkedAt = $now
+    | .plugins[$r.id] = {
+        ahead: $r.ahead,
+        local: ($r.local // ""),
+        remote: ($r.remote // ""),
+        error: ($r.error // "")
+      }
+  ' <<<"$cache"
+}
+
+cmd_check() {
+  local listed cache id ids results
+  listed=$(shell_list)
+  cache=$(read_cache)
+  if [[ -n ${1:-} ]]; then
+    ids="$1"
+  else
+    ids=$(third_party_ids "$listed")
+  fi
+  results="[]"
+  while IFS= read -r id; do
+    [[ -n $id ]] || continue
+    valid_id "$id" || continue
+    local dir
+    dir=$(plugin_dir "$id")
+    [[ -d $dir/.git ]] || continue
+    local one
+    one=$(check_one "$id")
+    cache=$(merge_check "$one")
+    write_cache "$cache"
+    results=$(jq -c --argjson item "$one" '. + [$item]' <<<"$results")
+  done <<<"$ids"
+  cmd_list
+}
+
+require_id() {
+  local id="${1:-}"
+  [[ -n $id ]] || fail "plugin id is required"
+  valid_id "$id" || fail "invalid plugin id '$id'"
+  echo "$id"
+}
+
+kinds_of() {
+  local id="$1"
+  local listed
+  listed=$(shell_list)
+  jq -r --arg id "$id" '.[] | select(.id == $id) | (.kinds // []) | join(",")' <<<"$listed"
+}
+
+cmd_enable() {
+  local id
+  id=$(require_id "${1:-}")
+  local kinds
+  kinds=$(kinds_of "$id")
+  if [[ $kinds == *bar-widget* ]]; then
+    omarchy plugin enable "$id" --section right
+  else
+    omarchy plugin enable "$id"
+  fi
+  cmd_list
+}
+
+cmd_disable() {
+  local id
+  id=$(require_id "${1:-}")
+  omarchy plugin disable "$id"
+  cmd_list
+}
+
+fail_json() {
+  jq -nc --arg error "$*" '{ok: false, error: $error}'
+  exit 0
+}
+
+cmd_update() {
+  local id dir errf out rc err
+  id=$(require_id "${1:-}")
+  dir=$(plugin_dir "$id")
+  [[ -d $dir/.git ]] || fail_json "plugin '$id' is not a git checkout"
+
+  errf=$(mktemp "$STATE_DIR/update.XXXXXX")
+  set +e
+  out=$(omarchy plugin update "$id" --yes 2>"$errf")
+  rc=$?
+  set -e
+  err=$(tr '\n' ' ' <"$errf" | sed 's/[[:space:]]\+/ /g')
+  rm -f "$errf"
+  if (( rc != 0 )); then
+    fail_json "${err:-${out:-update failed}}"
+  fi
+
+  local sha
+  sha=$(git -C "$dir" rev-parse HEAD 2>/dev/null || true)
+  cache=$(read_cache)
+  cache=$(jq -c --arg id "$id" --arg sha "$sha" --argjson now "$(date +%s)" '
+    .checkedAt = $now
+    | .plugins[$id] = {ahead: 0, local: $sha, remote: $sha, error: ""}
+  ' <<<"$cache")
+  write_cache "$cache"
+
+  cmd_list
+  # Live bar widgets do not pick up a git pull; restart after stdout is out.
+  nohup bash -c 'sleep 0.4; omarchy restart shell' >/dev/null 2>&1 &
+  disown || true
+}
+
+cmd_remove() {
+  local id
+  id=$(require_id "${1:-}")
+  [[ $id != "$SELF_ID" ]] || fail "refusing to remove $SELF_ID while it is running"
+  omarchy plugin remove "$id" --yes
+  cmd_list
+}
+
+cmd_open() {
+  local id dir url
+  id=$(require_id "${1:-}")
+  dir=$(plugin_dir "$id")
+  url=$(repo_for "$dir")
+  [[ -n $url ]] || fail "no repository URL for '$id'"
+  xdg-open "$url" >/dev/null 2>&1 &
+  jq -nc --arg id "$id" --arg url "$url" '{ok: true, id: $id, url: $url}'
+}
+
+cmd="${1:-}"
+shift || true
+case "$cmd" in
+list) cmd_list ;;
+check) cmd_check "${1:-}" ;;
+enable) cmd_enable "${1:-}" ;;
+disable) cmd_disable "${1:-}" ;;
+update) cmd_update "${1:-}" ;;
+remove) cmd_remove "${1:-}" ;;
+open) cmd_open "${1:-}" ;;
+-h | --help | help | "") usage ;;
+*) fail "unknown command: $cmd" ;;
+esac

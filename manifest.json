@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.bonesgit.omarchy-plugin-mgr",
+  "name": "Plugin Manager",
+  "version": "0.1.0",
+  "author": "BonesGit",
+  "license": "MIT",
+  "description": "List third-party Omarchy shell plugins, enable or disable them, and check git remotes for updates.",
+  "homepage": "https://github.com/BonesGit/omarchy-plugin-mgr",
+  "repository": "https://github.com/BonesGit/omarchy-plugin-mgr",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Plugins",
+    "description": "Third-party plugin list with enable, update, remove, and repo links.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "checkHours": 24
+    },
+    "schema": [
+      {
+        "key": "checkHours",
+        "type": "integer",
+        "label": "Check for updates every (hours)",
+        "min": 1,
+        "max": 168,
+        "step": 1,
+        "defaultValue": 24,
+        "description": "How often to fetch git remotes for installed third-party plugins. A check also runs when the shell starts."
+      }
+    ]
+  }
+}
