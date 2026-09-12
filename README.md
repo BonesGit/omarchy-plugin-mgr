@@ -1,8 +1,7 @@
 # Plugin Manager
 
 Omarchy bar widget that lists shell plugins in **Third Party** and **First Party**
-tabs, with enable/disable, git update checks, update, remove, and a button that
-opens the repo.
+tabs, with enable/disable, git update checks, update, remove, and a view repo button.
 
 Plugin id: `io.github.bonesgit.omarchy-plugin-mgr`
 
