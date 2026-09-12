@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.bonesgit.omarchy-plugin-mgr",
   "name": "Plugin Manager",
-  "version": "0.1.0",
+  "version": "0.8.0",
   "author": "BonesGit",
   "license": "MIT",
   "description": "List first- and third-party Omarchy shell plugins, enable or disable them, and check git remotes for updates.",
