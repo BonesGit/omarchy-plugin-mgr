@@ -29,9 +29,12 @@ Panel {
   readonly property string busyId: service ? service.busyId : ""
   readonly property string busyKind: service ? service.busyKind : ""
   readonly property string lastError: service ? service.lastError : ""
+  readonly property bool hasDefaultAgent: service ? service.hasDefaultAgent === true : false
+  readonly property bool securityScanOn: service ? service.securityScanOn === true : false
   readonly property int updateCount: service ? service.updateCount : 0
   readonly property double checkedAt: service ? service.checkedAt : 0
   readonly property string metaText: {
+    if (busyKind === "scan") return "scanning with default agent"
     if (checking) return "checking remotes"
     if (listing && !loaded) return "reading plugins"
     if (updateCount === 1) return "1 update"
@@ -56,7 +59,7 @@ Panel {
   onOpenedChanged: {
     if (opened) {
       now = Date.now()
-      if (service) service.load()
+      if (service && service.firstPartyCount === 0) service.load()
       Qt.callLater(function() { if (keyCatcher) keyCatcher.forceActiveFocus() })
     }
   }
@@ -136,6 +139,7 @@ Panel {
               foreground: root.foreground
               fontFamily: root.fontFamily
               fontSize: Style.font.caption
+              bordered: true
               enabled: !root.checking && !root.busy
               onClicked: if (root.service) root.service.check()
             }
@@ -261,17 +265,20 @@ Panel {
               property bool _hot: cardHover.hovered
               property bool _on: modelData.enabled === true
               property bool _rowBusy: root.busyId === modelData.id
+              property bool _scanning: root.busyKind === "scan" && root.busyId === modelData.id
               property bool _armed: false
               color: Style.controlFill(false, _hot, root.foreground, Color.accent)
               borderSpec: card._armed
                 ? Border.flat(Color.urgent, Math.max(1, Style.hoverBorderWidth))
-                : (modelData.updateAvailable
+                : (card._scanning
                   ? Border.flat(Color.accent, Math.max(1, Style.hoverBorderWidth))
-                  : (_on
-                    ? Border.controlSpec(_hot ? "hover-cursor" : "selected", root.foreground, Color.accent)
-                    : Border.controlSpec(_hot ? "hover-cursor" : "normal", root.foreground, Color.accent)))
+                  : (modelData.updateAvailable
+                    ? Border.flat(Color.accent, Math.max(1, Style.hoverBorderWidth))
+                    : (_on
+                      ? Border.controlSpec(_hot ? "hover-cursor" : "selected", root.foreground, Color.accent)
+                      : Border.controlSpec(_hot ? "hover-cursor" : "normal", root.foreground, Color.accent))))
               implicitHeight: row.implicitHeight + Style.space(10)
-              opacity: _rowBusy ? 0.55 : 1
+              opacity: (_rowBusy && !card._scanning && !card._armed) ? 0.55 : 1
 
               Behavior on color { ColorAnimation { duration: 100 } }
               Behavior on opacity { NumberAnimation { duration: 100 } }
@@ -382,10 +389,15 @@ Panel {
                     opacity: modelData.git === true ? 1 : 0
                     iconText: "󰚰"
                     tooltipText: modelData.git !== true ? ""
-                      : (modelData.updateAvailable ? "Update from origin" : "No upstream commits")
-                    foreground: modelData.updateAvailable ? Color.accent : root.dim
+                      : (Model.debugForceUpdateButtons() && !modelData.updateAvailable
+                        ? "Debug: force update/scan"
+                        : (!modelData.updateAvailable ? "No upstream commits"
+                          : (root.securityScanOn
+                            ? "Scan with default agent, then update if clear"
+                            : "Update from origin")))
+                    foreground: (modelData.updateAvailable || Model.debugForceUpdateButtons()) ? Color.accent : root.dim
                     fontFamily: root.fontFamily
-                    enabled: modelData.git === true && !root.busy && modelData.updateAvailable === true
+                    enabled: modelData.git === true && !root.busy && (modelData.updateAvailable === true || Model.debugForceUpdateButtons())
                     onClicked: if (root.service) root.service.updatePlugin(modelData.id)
                   }
 
@@ -424,7 +436,21 @@ Panel {
               }
 
               Button {
-                visible: card._armed
+                visible: card._scanning
+                anchors.centerIn: parent
+                z: 3
+                text: "Cancel"
+                tooltipText: "Cancel security scan"
+                foreground: Color.urgent
+                accent: Color.urgent
+                fontFamily: root.fontFamily
+                fontSize: Style.font.caption
+                enabled: true
+                onClicked: if (root.service) root.service.cancelScan()
+              }
+
+              Button {
+                visible: card._armed && !card._scanning
                 anchors.centerIn: parent
                 z: 2
                 text: "Remove"
@@ -449,6 +475,68 @@ Panel {
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
           wrapMode: Text.WordWrap
+        }
+
+        Item {
+          width: parent.width
+          implicitHeight: scanRow.implicitHeight
+          height: implicitHeight
+
+          Row {
+            id: scanRow
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Style.space(8)
+            opacity: root.hasDefaultAgent ? 1 : 0.45
+
+            Text {
+              text: "Security scan"
+              color: root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              anchors.verticalCenter: parent.verticalCenter
+            }
+
+            Item {
+              implicitWidth: scanSwitch.implicitWidth
+              implicitHeight: scanSwitch.implicitHeight
+              width: implicitWidth
+              height: implicitHeight
+              anchors.verticalCenter: parent.verticalCenter
+
+              ToggleSwitch {
+                id: scanSwitch
+                anchors.centerIn: parent
+                checked: root.securityScanOn
+                interactive: root.hasDefaultAgent && !root.busy
+                cursorRing: true
+                foreground: root.foreground
+                accent: Color.accent
+                onToggled: {
+                  if (!root.service || !root.hasDefaultAgent) return
+                  root.service.setSecurityScan(!root.securityScanOn)
+                }
+              }
+
+              MouseArea {
+                id: scanDisabledHit
+                anchors.fill: parent
+                enabled: !root.hasDefaultAgent
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+              }
+
+              PanelToolTip {
+                visible: scanSwitch.containsMouse || scanDisabledHit.containsMouse
+                text: !root.hasDefaultAgent
+                  ? "Pick a default agent to enable security scans."
+                  : (root.securityScanOn
+                    ? "Scan incoming updates with the default agent"
+                    : "Update without a security scan")
+                fontFamily: root.fontFamily
+              }
+            }
+          }
         }
       }
     }

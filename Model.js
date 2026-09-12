@@ -1,5 +1,11 @@
 .pragma library
 
+// Temporary local-test switch. true = every git Update button is enabled even
+// when origin is not ahead, and prepare-scan will review HEAD. Set false before shipping.
+function debugForceUpdateButtons() {
+  return false
+}
+
 function configuredCheckHours(settings) {
   var n = settings && settings.checkHours != null ? Number(settings.checkHours) : 24
   if (!isFinite(n)) n = 24
@@ -10,6 +16,19 @@ function configuredCheckHours(settings) {
 
 function configuredCheckMs(settings) {
   return configuredCheckHours(settings) * 3600 * 1000
+}
+
+function parseBool(value, fallback) {
+  if (value === true || value === "true") return true
+  if (value === false || value === "false") return false
+  return fallback === true
+}
+
+// Default on when unset. Callers still AND this with hasDefaultAgent.
+function configuredSecurityScan(settings) {
+  if (!settings || settings.securityScan == null || settings.securityScan === "")
+    return true
+  return parseBool(settings.securityScan, true)
 }
 
 function msUntilDue(checkedAt, checkMs) {

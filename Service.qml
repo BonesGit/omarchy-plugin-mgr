@@ -27,11 +27,25 @@ Item {
   property string busyId: ""
   property string busyKind: ""
   property string lastError: ""
+  property string defaultAgent: ""
+  property bool hasDefaultAgent: false
+  property var scanPref: null
 
   readonly property int checkMs: Model.configuredCheckMs(settings)
   readonly property int updateCount: Model.updateCount(plugins)
   readonly property int pluginCount: Model.thirdPartyCount(plugins)
-  readonly property bool busy: listing || checking || busyId !== ""
+  readonly property int firstPartyCount: Model.filterByFirstParty(plugins, true).length
+  // listing is a background refresh — do not freeze the panel on it.
+  readonly property bool busy: checking || busyId !== ""
+  readonly property bool securityScanOn: hasDefaultAgent && (scanPref !== null
+    ? scanPref === true
+    : Model.configuredSecurityScan(settings))
+
+  onSettingsChanged: {
+    if (root.scanPref === null) return
+    if (Model.configuredSecurityScan(root.settings) === root.scanPref)
+      root.scanPref = null
+  }
 
   readonly property string script:
     Qt.resolvedUrl("bin/plugin-mgr").toString().replace(/^file:\/\//, "")
@@ -54,6 +68,10 @@ Item {
         root.lastError = Model.clipError(err)
       return false
     }
+    if (data && data.hasDefaultAgent !== undefined)
+      root.hasDefaultAgent = data.hasDefaultAgent === true
+    if (data && data.defaultAgent !== undefined)
+      root.defaultAgent = String(data.defaultAgent || "")
     if (data && Array.isArray(data.plugins)) {
       root.plugins = data.plugins
       root.checkedAt = Number(data.checkedAt || 0)
@@ -74,6 +92,7 @@ Item {
 
   function load() {
     if (listProc.running) return
+    root.listAttempts += 1
     root.listing = true
     listProc.command = root.argv("list")
     listProc.running = true
@@ -99,7 +118,72 @@ Item {
   }
 
   function updatePlugin(id) {
-    runAction("update", id)
+    if (!id || actionProc.running || scanPrepProc.running) return
+    if (root.securityScanOn)
+      prepareScan(id)
+    else
+      runAction("update", id)
+  }
+
+  function prepareScan(id) {
+    if (!id || scanPrepProc.running || actionProc.running || statusProc.running) return
+    root.busyId = id
+    root.busyKind = "scan"
+    root.lastError = ""
+    if (Model.debugForceUpdateButtons())
+      scanPrepProc.command = root.argv("prepare-scan", id, "--force")
+    else
+      scanPrepProc.command = root.argv("prepare-scan", id)
+    scanPrepProc.running = true
+  }
+
+  function pollScan() {
+    if (root.busyKind !== "scan" || root.busyId === "" || statusProc.running) return
+    statusProc.command = root.argv("scan-status", root.busyId)
+    statusProc.running = true
+  }
+
+  function finishScan(data) {
+    var state = data && data.state ? String(data.state) : ""
+    if (state === "waiting") return
+    if (state === "clear") {
+      scanTimer.stop()
+      runAction("update", root.busyId)
+      return
+    }
+    scanTimer.stop()
+    if (state === "block")
+      root.lastError = Model.clipError(data.summary || "security scan blocked the update")
+    else if (state === "idle")
+      root.lastError = ""
+    var id = root.busyId
+    root.busyId = ""
+    root.busyKind = ""
+    if (id && !cancelProc.running) {
+      cancelProc.command = root.argv("cancel-scan", id)
+      cancelProc.running = true
+    }
+  }
+
+  function cancelScan() {
+    if (root.busyKind !== "scan") return
+    scanTimer.stop()
+    var id = root.busyId
+    root.busyId = ""
+    root.busyKind = ""
+    root.lastError = ""
+    if (id && !cancelProc.running) {
+      cancelProc.command = root.argv("cancel-scan", id)
+      cancelProc.running = true
+    }
+  }
+
+  function setSecurityScan(on) {
+    if (!root.hasDefaultAgent) return
+    root.scanPref = on === true
+    if (setProc.running) return
+    setProc.command = ["omarchy", "bar", "set", "io.github.bonesgit.omarchy-plugin-mgr", "securityScan", on ? "true" : "false", "--json"]
+    setProc.running = true
   }
 
   function removePlugin(id) {
@@ -113,7 +197,7 @@ Item {
   }
 
   function runAction(kind, id) {
-    if (!id || actionProc.running) return
+    if (!id || actionProc.running || scanPrepProc.running) return
     root.busyId = id
     root.busyKind = kind
     root.lastError = ""
@@ -198,12 +282,88 @@ Item {
     }
   }
 
-  Timer {
-    interval: 400
-    running: true
-    repeat: false
-    onTriggered: root.load()
+  Process {
+    id: scanPrepProc
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var raw = String(text || "").trim()
+        var data = null
+        try { data = JSON.parse(raw) } catch (e) { data = null }
+        if (data && data.hasDefaultAgent !== undefined)
+          root.hasDefaultAgent = data.hasDefaultAgent === true
+        if (!data || data.ok !== true) {
+          if (!root.applyPayload(raw, scanPrepErr.text) && root.lastError === "")
+            root.lastError = Model.clipError(scanPrepErr.text || "scan failed")
+          root.busyId = ""
+          root.busyKind = ""
+          return
+        }
+        scanTimer.restart()
+        root.pollScan()
+      }
+    }
+    stderr: StdioCollector { id: scanPrepErr }
+    onExited: function(code) {
+      if (code !== 0 && root.busyKind === "scan") {
+        if (root.lastError === "")
+          root.lastError = Model.clipError(scanPrepErr.text || "scan failed")
+        root.busyId = ""
+        root.busyKind = ""
+        scanTimer.stop()
+      }
+    }
   }
+
+  Process {
+    id: statusProc
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var raw = String(text || "").trim()
+        var data = null
+        try { data = JSON.parse(raw) } catch (e) { data = null }
+        if (root.busyKind !== "scan") return
+        if (!data || data.ok !== true) return
+        root.finishScan(data)
+      }
+    }
+    stderr: StdioCollector {}
+  }
+
+  Process {
+    id: cancelProc
+    stdout: StdioCollector {}
+    stderr: StdioCollector {}
+  }
+
+  Process {
+    id: setProc
+    stdout: StdioCollector {}
+    stderr: StdioCollector { id: setErr }
+    onExited: function(code) {
+      if (code !== 0)
+        root.lastError = Model.clipError(setErr.text || "could not save scan setting")
+    }
+  }
+
+  Timer {
+    id: scanTimer
+    interval: 1000
+    running: false
+    repeat: true
+    onTriggered: root.pollScan()
+  }
+
+  Component.onCompleted: root.load()
+
+  Timer {
+    id: listRetry
+    interval: 400
+    running: root.firstPartyCount === 0 && root.listAttempts < 20
+    repeat: true
+    onTriggered: if (!listProc.running) root.load()
+  }
+
+  property int listAttempts: 0
 
   Timer {
     id: dueTimer

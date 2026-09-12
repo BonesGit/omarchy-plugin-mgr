@@ -8,6 +8,8 @@ export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -oBatchMode=yes}"
 PLUGINS_DIR="${HOME}/.config/omarchy/plugins"
 STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/omarchy/plugin-mgr"
 CACHE="${STATE_DIR}/last-check.json"
+SCAN_DIR="${STATE_DIR}/scans"
+TREE_DIR="${STATE_DIR}/trees"
 SHELL_JSON="${HOME}/.config/omarchy/shell.json"
 
 fail() {
@@ -28,6 +30,9 @@ Usage: plugin-mgr <command> [id]
   enable <id>       omarchy plugin enable
   disable <id>      omarchy plugin disable
   update <id>       omarchy plugin update --yes
+  prepare-scan <id> Fetch incoming commits, launch default agent, wait for verdict file
+  scan-status <id>  Read the security-scan verdict file
+  cancel-scan <id>  Drop a pending scan without updating
   remove <id>       omarchy plugin remove --yes
   open <id>         xdg-open the github/repo URL
 EOF
@@ -282,8 +287,10 @@ cmd_list() {
   local checkedAt
   checkedAt=$(jq -r '.checkedAt // 0' <<<"$cache")
   [[ $checkedAt =~ ^[0-9]+$ ]] || checkedAt=0
-  jq -nc --argjson plugins "$items" --argjson checkedAt "$checkedAt" \
-    '{ok: true, checkedAt: $checkedAt, plugins: $plugins}'
+  local agent_info
+  agent_info=$(default_agent_info)
+  jq -nc --argjson plugins "$items" --argjson checkedAt "$checkedAt" --argjson agent "$agent_info" \
+    '{ok: true, checkedAt: $checkedAt, plugins: $plugins} + $agent'
   return 0
 }
 
@@ -409,11 +416,213 @@ fail_json() {
   exit 0
 }
 
+scan_meta_path() { echo "$SCAN_DIR/$1.meta.json"; }
+scan_prompt_path() { echo "$SCAN_DIR/$1.prompt"; }
+scan_verdict_path() { echo "$SCAN_DIR/$1.json"; }
+scan_tree_path() { echo "$TREE_DIR/$1"; }
+
+default_agent_info() {
+  local agent has
+  agent=$(omarchy-default-agent 2>/dev/null || true)
+  agent=${agent//$'\n'/}
+  has=false
+  if [[ -n $agent ]] && ! omarchy-cmd-missing "$agent"; then
+    has=true
+  fi
+  jq -nc --arg agent "$agent" --argjson has "$has" \
+    '{defaultAgent: $agent, hasDefaultAgent: $has}'
+}
+
+require_default_agent() {
+  local info
+  info=$(default_agent_info)
+  if [[ $(jq -r '.hasDefaultAgent' <<<"$info") != true ]]; then
+    fail_json "no default agent; run: omarchy default agent <name>"
+  fi
+}
+
+remove_scan_tree() {
+  local id="$1"
+  local dir plug
+  dir=$(scan_tree_path "$id")
+  plug=$(plugin_dir "$id")
+  if [[ -d $dir ]]; then
+    git -C "$plug" worktree remove --force "$dir" >/dev/null 2>&1 || rm -rf "$dir"
+  fi
+}
+
+clear_scan_files() {
+  local id="$1"
+  remove_scan_tree "$id"
+  rm -f "$(scan_meta_path "$id")" "$(scan_prompt_path "$id")" "$(scan_verdict_path "$id")"
+}
+
+write_scan_prompt() {
+  local id="$1" name="$2" repo="$3" local_sha="$4" remote_sha="$5" ahead="$6" worktree="$7" verdict="$8"
+  cat <<PROMPT
+Security-review this Omarchy shell plugin update before it is installed.
+
+Plugin: ${name} (${id})
+Repo: ${repo}
+Installed: ${local_sha}
+Incoming: ${remote_sha} (${ahead} commit(s) ahead)
+Read-only checkout of the incoming tree:
+  ${worktree}
+
+Review ONLY security, malware, and data leakage (exfil, secrets, unexpected network, persistence, obfuscated payloads). Ignore correctness and style.
+
+Do not execute anything in that tree. Do not merge, install, or modify ~/.config/omarchy/plugins/${id}.
+
+When finished, write this JSON file (the panel parses only this file, not the terminal):
+  ${verdict}
+
+{"verdict":"CLEAR","pluginId":"${id}","remote":"${remote_sha}","summary":"<one line>"}
+or
+{"verdict":"BLOCK","pluginId":"${id}","remote":"${remote_sha}","summary":"<one line>"}
+
+CLEAR only if nothing dangerous or leaky stands out. If unsure, BLOCK.
+PROMPT
+}
+
+cmd_prepare_scan() {
+  local id dir listed name repo one error ahead local_sha remote_sha worktree verdict_path prompt_path meta_path prompt agent
+  local force=false ref
+  id=""
+  while (($#)); do
+    case "$1" in
+    --force) force=true ;;
+    *) id=$(require_id "$1") ;;
+    esac
+    shift
+  done
+  id=$(require_id "$id")
+  dir=$(plugin_dir "$id")
+  [[ -d $dir/.git ]] || fail_json "plugin '$id' is not a git checkout"
+  listed=$(shell_list)
+  if is_first_party "$id" "$listed"; then
+    fail_json "refusing to scan first-party plugin '$id'"
+  fi
+  require_default_agent
+  command -v omarchy-agent >/dev/null || fail_json "omarchy-agent is not available"
+
+  mkdir -p "$SCAN_DIR" "$TREE_DIR"
+  one=$(check_one "$id")
+  write_cache "$(merge_check "$one")"
+  error=$(jq -r '.error // empty' <<<"$one")
+  [[ -z $error ]] || fail_json "$error"
+  ahead=$(jq -r '.ahead // 0' <<<"$one")
+  [[ $ahead =~ ^[0-9]+$ ]] || ahead=0
+  local_sha=$(jq -r '.local // empty' <<<"$one")
+  remote_sha=$(jq -r '.remote // empty' <<<"$one")
+  ref=FETCH_HEAD
+  if (( ahead <= 0 )); then
+    [[ $force == true ]] || fail_json "plugin '$id' has no incoming commits"
+    remote_sha=$local_sha
+    ref=HEAD
+  fi
+  [[ -n $remote_sha ]] || fail_json "could not resolve incoming commit for '$id'"
+
+  name=$(jq -r --arg id "$id" '.[] | select(.id == $id) | .name // empty' <<<"$listed")
+  [[ -n $name ]] || name=$(manifest_field "$dir" name)
+  [[ -n $name ]] || name="$id"
+  repo=$(repo_for "$dir")
+
+  clear_scan_files "$id"
+  worktree=$(scan_tree_path "$id")
+  if ! git -C "$dir" worktree add --detach "$worktree" "$ref" >/dev/null 2>&1; then
+    fail_json "could not check out incoming commits for scan"
+  fi
+
+  verdict_path=$(scan_verdict_path "$id")
+  prompt_path=$(scan_prompt_path "$id")
+  meta_path=$(scan_meta_path "$id")
+  write_scan_prompt "$id" "$name" "$repo" "$local_sha" "$remote_sha" "$ahead" "$worktree" "$verdict_path" >"$prompt_path"
+  jq -nc \
+    --arg id "$id" \
+    --arg remote "$remote_sha" \
+    --arg worktree "$worktree" \
+    --arg verdict "$verdict_path" \
+    '{id: $id, remote: $remote, worktree: $worktree, verdictPath: $verdict}' >"$meta_path"
+
+  prompt=$(cat "$prompt_path")
+  omarchy-agent --prompt "$prompt" >/dev/null 2>&1 &
+  disown || true
+
+  jq -nc \
+    --arg id "$id" \
+    --arg remote "$remote_sha" \
+    --arg repo "$repo" \
+    --arg worktree "$worktree" \
+    --arg verdictPath "$verdict_path" \
+    '{ok: true, state: "waiting", id: $id, remote: $remote, repo: $repo, worktree: $worktree, verdictPath: $verdictPath}'
+}
+
+cmd_scan_status() {
+  local id meta_path verdict_path meta expected got verdict plugin_id summary state
+  id=$(require_id "${1:-}")
+  meta_path=$(scan_meta_path "$id")
+  verdict_path=$(scan_verdict_path "$id")
+
+  if [[ ! -f $meta_path ]]; then
+    jq -nc --arg id "$id" '{ok: true, state: "idle", id: $id}'
+    return 0
+  fi
+  meta=$(cat "$meta_path")
+  expected=$(jq -r '.remote // empty' <<<"$meta")
+
+  if [[ ! -f $verdict_path ]]; then
+    jq -nc --arg id "$id" --arg remote "$expected" \
+      '{ok: true, state: "waiting", id: $id, remote: $remote}'
+    return 0
+  fi
+
+  if ! jq -e . "$verdict_path" >/dev/null 2>&1; then
+    jq -nc --arg id "$id" --arg summary "invalid scan result" \
+      '{ok: true, state: "block", id: $id, summary: $summary}'
+    return 0
+  fi
+
+  plugin_id=$(jq -r '.pluginId // empty' "$verdict_path")
+  got=$(jq -r '.remote // empty' "$verdict_path")
+  verdict=$(jq -r '.verdict // empty' "$verdict_path" | tr '[:lower:]' '[:upper:]')
+  summary=$(jq -r '.summary // empty' "$verdict_path")
+
+  if [[ $plugin_id != "$id" || -z $got || $got != "$expected" ]]; then
+    jq -nc --arg id "$id" --arg summary "${summary:-scan result did not match this update}" \
+      '{ok: true, state: "block", id: $id, summary: $summary}'
+    return 0
+  fi
+  if [[ $verdict == CLEAR ]]; then
+    state=clear
+    [[ -n $summary ]] || summary="scan clear"
+  elif [[ $verdict == BLOCK ]]; then
+    state=block
+    [[ -n $summary ]] || summary="scan blocked"
+  else
+    state=block
+    summary="invalid scan verdict"
+  fi
+  jq -nc \
+    --arg id "$id" \
+    --arg state "$state" \
+    --arg remote "$got" \
+    --arg summary "$summary" \
+    '{ok: true, state: $state, id: $id, remote: $remote, summary: $summary}'
+}
+
+cmd_cancel_scan() {
+  local id
+  id=$(require_id "${1:-}")
+  clear_scan_files "$id"
+  jq -nc --arg id "$id" '{ok: true, state: "idle", id: $id}'
+}
+
 cmd_update() {
   local id dir errf out rc err
   id=$(require_id "${1:-}")
   dir=$(plugin_dir "$id")
   [[ -d $dir/.git ]] || fail_json "plugin '$id' is not a git checkout"
+  clear_scan_files "$id"
 
   errf=$(mktemp "$STATE_DIR/update.XXXXXX")
   set +e
@@ -470,6 +679,9 @@ check) cmd_check "${1:-}" ;;
 enable) cmd_enable "${1:-}" ;;
 disable) cmd_disable "${1:-}" ;;
 update) cmd_update "${1:-}" ;;
+prepare-scan) cmd_prepare_scan "$@" ;;
+scan-status) cmd_scan_status "${1:-}" ;;
+cancel-scan) cmd_cancel_scan "${1:-}" ;;
 remove) cmd_remove "${1:-}" ;;
 open) cmd_open "${1:-}" ;;
 -h | --help | help | "") usage ;;

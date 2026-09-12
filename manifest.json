@@ -23,7 +23,8 @@
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
-      "checkHours": 24
+      "checkHours": 24,
+      "securityScan": true
     },
     "schema": [
       {
@@ -35,6 +36,13 @@
         "step": 1,
         "defaultValue": 24,
         "description": "How often to fetch git remotes for installed third-party plugins. Checks do not run on shell start; they wait until this interval has passed since the last check."
+      },
+      {
+        "key": "securityScan",
+        "type": "boolean",
+        "label": "Scan updates with default agent",
+        "defaultValue": true,
+        "description": "When on, Update launches your Omarchy default coding agent to review incoming commits for malware, security issues, and data leakage. The plugin updates only if that scan reports clear. The panel switch is disabled until a default agent is set."
       }
     ]
   }
