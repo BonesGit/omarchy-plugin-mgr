@@ -121,9 +121,7 @@ BarWidget {
     labelVisible: false
     hasVisualContent: true
     tooltipText: root.tooltip
-    fixedWidth: root.vertical ? -1 : (root.updateCount > 0
-      ? contentRow.implicitWidth + Style.space(16)
-      : Style.bar.iconSlot)
+    fixedWidth: root.vertical ? -1 : Style.bar.iconSlot
     fixedHeight: root.vertical ? Style.bar.iconSlot : -1
 
     onPressed: function(buttonCode) {
@@ -131,24 +129,21 @@ BarWidget {
       else root.toggle()
     }
 
-    Row {
+    Item {
       id: contentRow
       visible: !root.vertical
       anchors.centerIn: parent
-      spacing: Style.space(6)
+      width: Style.bar.iconSlot
+      height: Style.bar.iconSlot
+      implicitWidth: width
+      implicitHeight: height
 
-      Item {
-        width: Style.bar.iconSlot
-        implicitHeight: Style.bar.iconSlot
-        height: implicitHeight
-
-        OpticalGlyph {
-          anchors.fill: parent
-          text: "󰐱"
-          fontFamily: button.fontFamily
-          fontSize: Style.bar.iconFont
-          color: button.active && button.useActiveColor ? button.activeColor : button.foreground
-        }
+      OpticalGlyph {
+        anchors.fill: parent
+        text: "󰐱"
+        fontFamily: button.fontFamily
+        fontSize: Style.bar.iconFont
+        color: button.active && button.useActiveColor ? button.activeColor : button.foreground
       }
 
       Text {
@@ -156,18 +151,41 @@ BarWidget {
         text: String(root.updateCount)
         color: button.foreground
         font.family: button.fontFamily
-        font.pixelSize: Style.font.body
-        anchors.verticalCenter: parent.verticalCenter
+        font.pixelSize: Math.max(8, Math.round(Style.bar.iconFont * 0.5))
+        font.bold: true
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: Style.space(1)
+        anchors.bottomMargin: Style.space(1)
       }
     }
 
-    OpticalGlyph {
+    Item {
       visible: root.vertical
       anchors.centerIn: parent
-      text: "󰐱"
-      fontFamily: button.fontFamily
-      fontSize: Style.bar.iconFont
-      color: button.active && button.useActiveColor ? button.activeColor : button.foreground
+      width: Style.bar.iconSlot
+      height: Style.bar.iconSlot
+
+      OpticalGlyph {
+        anchors.fill: parent
+        text: "󰐱"
+        fontFamily: button.fontFamily
+        fontSize: Style.bar.iconFont
+        color: button.active && button.useActiveColor ? button.activeColor : button.foreground
+      }
+
+      Text {
+        visible: root.updateCount > 0
+        text: String(root.updateCount)
+        color: button.foreground
+        font.family: button.fontFamily
+        font.pixelSize: Math.max(8, Math.round(Style.bar.iconFont * 0.5))
+        font.bold: true
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.rightMargin: Style.space(1)
+        anchors.bottomMargin: Style.space(1)
+      }
     }
   }
 }
