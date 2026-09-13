@@ -20,7 +20,7 @@ BarWidget {
   readonly property bool checking: store ? store.checking : false
   readonly property string lastError: store ? store.lastError : ""
   readonly property string busyKind: store ? store.busyKind : ""
-  readonly property bool pillBusy: busyKind === "scan" || busyKind === "add" || busyKind === "update"
+  readonly property bool pillBusy: checking || busyKind === "scan" || busyKind === "add" || busyKind === "update"
   readonly property bool pillConfirm: busyKind === "confirm"
   readonly property string pillIcon: pillBusy ? "󰑐" : (pillConfirm ? "󰀪" : "󰐱")
   readonly property color statusColor: {
