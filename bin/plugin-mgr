@@ -394,12 +394,13 @@ cmd_enable() {
   id=$(require_id "${1:-}")
   listed=$(shell_list)
   kinds=$(jq -r --arg id "$id" '.[] | select(.id == $id) | (.kinds // []) | join(",")' <<<"$listed")
+  # Omarchy prints "Enabled …" on stdout; the panel only accepts JSON from cmd_list.
   if is_first_party "$id" "$listed"; then
-    omarchy plugin enable "$id"
+    omarchy plugin enable "$id" >/dev/null
   elif [[ $kinds == *bar-widget* ]]; then
-    omarchy plugin enable "$id" --section right
+    omarchy plugin enable "$id" --section right >/dev/null
   else
-    omarchy plugin enable "$id"
+    omarchy plugin enable "$id" >/dev/null
   fi
   cmd_list
 }
@@ -407,7 +408,8 @@ cmd_enable() {
 cmd_disable() {
   local id
   id=$(require_id "${1:-}")
-  omarchy plugin disable "$id"
+  # Omarchy prints "Disabled …" on stdout; keep stderr for real failures.
+  omarchy plugin disable "$id" >/dev/null
   cmd_list
 }
 
@@ -673,7 +675,7 @@ cmd_remove() {
   if is_first_party "$id" "$listed"; then
     fail "refusing to remove first-party plugin '$id'"
   fi
-  omarchy plugin remove "$id" --yes
+  omarchy plugin remove "$id" --yes >/dev/null
   cmd_list
 }
 

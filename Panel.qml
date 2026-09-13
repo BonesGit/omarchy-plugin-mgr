@@ -492,15 +492,18 @@ Panel {
                   ToggleSwitch {
                     id: enableSwitch
                     anchors.verticalCenter: parent.verticalCenter
+                    // ToggleSwitch never flips `checked` itself — caller owns
+                    // the value and acts on toggled() from the current model.
                     checked: modelData.enabled === true
+                    busy: root.busy
                     foreground: root.foreground
                     accent: Color.accent
-                    enabled: !root.busy
                     onToggled: {
                       if (!root.service) return
-                      if (checked === (modelData.enabled === true)) return
-                      if (checked) root.service.enablePlugin(modelData.id)
-                      else root.service.disablePlugin(modelData.id)
+                      if (modelData.enabled === true)
+                        root.service.disablePlugin(modelData.id)
+                      else
+                        root.service.enablePlugin(modelData.id)
                     }
 
                     PanelToolTip {

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **Fix:** Enable/disable row toggle now calls `omarchy plugin enable|disable`. Omarchy's `ToggleSwitch` only emits `toggled()` and does not flip `checked`, so the old handler always no-op'd.
+- **Fix:** Enable/disable/remove no longer prepend Omarchy's human "Enabled/Disabled …" lines onto stdout, so the panel can parse the refreshed plugin list instead of showing "action failed".
+
 ## 1.0.0
 
 - **New:** Security scan on panel Update — Off / Confirm / Trust. Confirm waits for a thumbs-up after `CLEAR`; Trust installs immediately. Defaults follow `securityScan` / `trustScan` and whether a default agent is set. Panel clicks are session-only.
