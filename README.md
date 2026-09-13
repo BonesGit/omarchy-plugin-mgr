@@ -4,8 +4,8 @@ Omarchy bar widget that lists shell plugins in **Third Party** and **First Party
 tabs, with enable/disable, git update checks, update, remove, and a view repo button.
 
 > [!IMPORTANT]
-> **Security scan before update.** Incoming commits are reviewed by your Omarchy
-> default coding agent for malware, exploits, and data leakage. The plugin
+> **Security scan feature** Uses your default AI agent to perform security scans on plugin updates. 
+> Scan will look for malware, exploits, and data leakage. The plugin
 > updates only if that scan reports clear. Toggle **Security scan** at the
 > bottom of the panel (`omarchy default agent` to enable it).
 
