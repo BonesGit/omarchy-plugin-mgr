@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.bonesgit.omarchy-plugin-mgr",
   "name": "Plugin Manager",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "author": "BonesGit",
   "license": "MIT",
   "description": "Lists shell plugins in Third Party and First Party tabs. Actions to enable/disable, check for updates, visit git repo, remove, and a security scanner before updating.",
@@ -43,7 +43,7 @@
         "type": "boolean",
         "label": "Scan updates with default agent",
         "defaultValue": true,
-        "description": "When on, Update launches your Omarchy default coding agent to review incoming commits for malware, security issues, and data leakage. The plugin updates only if that scan reports clear. The panel switch is disabled until a default agent is set."
+        "description": "When on, Update launches your Omarchy default coding agent to review incoming commits for malware, security issues, and data leakage. The plugin updates only if that scan reports clear. The button panel is disabled until a default agent is set."
       },
       {
         "key": "trustScan",
