@@ -32,11 +32,14 @@ Panel {
   readonly property bool hasDefaultAgent: service ? service.hasDefaultAgent === true : false
   readonly property bool securityScanOn: service ? service.securityScanOn === true : false
   readonly property string scanMode: service ? service.scanMode : "off"
-  readonly property var scanModeOptions: [
-    { value: "off", label: "Off" },
-    { value: "confirm", label: "Confirm" },
-    { value: "trust", label: "Trust" }
-  ]
+  readonly property var scanModeOptions: {
+    var needAgent = "Pick a default agent to enable security scans."
+    return [
+      { value: "off", label: "Off", tooltip: "Update without a scan." },
+      { value: "confirm", label: "Confirm", tooltip: root.hasDefaultAgent ? "Scan, then click the thumbs-up to install." : needAgent },
+      { value: "trust", label: "Trust", tooltip: root.hasDefaultAgent ? "Scan, then update on CLEAR with no extra click." : needAgent }
+    ]
+  }
   readonly property int updateCount: service ? service.updateCount : 0
   readonly property double checkedAt: service ? service.checkedAt : 0
   readonly property string metaText: {
@@ -492,8 +495,6 @@ Panel {
           implicitHeight: scanRow.implicitHeight
           height: implicitHeight
 
-          HoverHandler { id: scanHover }
-
           Row {
             id: scanRow
             anchors.right: parent.right
@@ -525,18 +526,6 @@ Panel {
                 root.service.setScanMode(v)
               }
             }
-          }
-
-          PanelToolTip {
-            visible: scanHover.hovered
-            text: !root.hasDefaultAgent
-              ? "Pick a default agent to enable security scans."
-              : (root.scanMode === "off"
-                ? "Off: update without a scan."
-                : (root.scanMode === "confirm"
-                  ? "Confirm: scan, then click the thumbs-up to install."
-                  : "Trust: scan, then update on CLEAR with no extra click."))
-            fontFamily: root.fontFamily
           }
         }
       }

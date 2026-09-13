@@ -24,6 +24,11 @@ BorderSurface {
     return (o && typeof o === "object" && o.label !== undefined) ? String(o.label) : String(o)
   }
 
+  function optionTooltip(o) {
+    if (o && typeof o === "object" && o.tooltip !== undefined) return String(o.tooltip)
+    return ""
+  }
+
   radius: Style.cornerRadius
   color: "transparent"
   clip: true
@@ -83,6 +88,12 @@ BorderSurface {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: root.changed(root.optionValue(seg.modelData))
+          }
+
+          PanelToolTip {
+            visible: chipMouse.containsMouse && root.optionTooltip(seg.modelData) !== ""
+            text: root.optionTooltip(seg.modelData)
+            fontFamily: root.fontFamily
           }
         }
 
