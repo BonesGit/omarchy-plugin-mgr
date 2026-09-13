@@ -10,6 +10,7 @@ STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/omarchy/plugin-mgr"
 CACHE="${STATE_DIR}/last-check.json"
 SCAN_DIR="${STATE_DIR}/scans"
 TREE_DIR="${STATE_DIR}/trees"
+INSTALL_SCAN_ID="new.install"
 SHELL_JSON="${HOME}/.config/omarchy/shell.json"
 
 fail() {
@@ -31,8 +32,10 @@ Usage: plugin-mgr <command> [id]
   disable <id>      omarchy plugin disable
   update <id>       omarchy plugin update --yes
   prepare-scan <id> Fetch incoming commits, launch default agent, wait for verdict file
+  prepare-install-scan <url>  Clone a git URL and scan before add
   scan-status <id>  Read the security-scan verdict file
   cancel-scan <id>  Drop a pending scan without updating
+  add <url>         omarchy plugin add --yes
   remove <id>       omarchy plugin remove --yes
   open <id>         xdg-open the github/repo URL
 EOF
@@ -461,6 +464,10 @@ remove_scan_tree() {
   local id="$1"
   local dir plug
   dir=$(scan_tree_path "$id")
+  if [[ $id == "$INSTALL_SCAN_ID" ]]; then
+    rm -rf "$dir"
+    return
+  fi
   plug=$(plugin_dir "$id")
   if [[ -d $dir ]]; then
     git -C "$plug" worktree remove --force "$dir" >/dev/null 2>&1 || rm -rf "$dir"
@@ -499,6 +506,34 @@ or
 CLEAR only if nothing dangerous or leaky stands out. If unsure, BLOCK.
 
 Write the JSON file once, then stop. The plugin manager will delete that file and the worktree; that is expected. Do not recreate them.
+PROMPT
+}
+
+write_install_scan_prompt() {
+  local id="$1" name="$2" repo="$3" remote_sha="$4" worktree="$5" verdict="$6"
+  cat <<PROMPT
+Security-review this Omarchy shell plugin before it is installed for the first time.
+
+Plugin: ${name} (${id})
+Repo: ${repo}
+Commit: ${remote_sha}
+Read-only checkout of the tree:
+  ${worktree}
+
+Review ONLY security, malware, and data leakage (exfil, secrets, unexpected network, persistence, obfuscated payloads). Ignore correctness and style.
+
+Do not execute anything in that tree. Do not install it or copy it into ~/.config/omarchy/plugins.
+
+When finished, write this JSON file (the panel parses only this file, not the terminal):
+  ${verdict}
+
+{"verdict":"CLEAR","pluginId":"${INSTALL_SCAN_ID}","remote":"${remote_sha}","summary":"<one line>"}
+or
+{"verdict":"BLOCK","pluginId":"${INSTALL_SCAN_ID}","remote":"${remote_sha}","summary":"<one line>"}
+
+CLEAR only if nothing dangerous or leaky stands out. If unsure, BLOCK.
+
+Write the JSON file once, then stop. The plugin manager will delete that file and the checkout; that is expected. Do not recreate them.
 PROMPT
 }
 
@@ -587,16 +622,18 @@ cmd_scan_status() {
   fi
   meta=$(cat "$meta_path")
   expected=$(jq -r '.remote // empty' <<<"$meta")
+  local kind
+  kind=$(jq -r '.kind // "update"' <<<"$meta")
 
   if [[ ! -f $verdict_path ]]; then
-    jq -nc --arg id "$id" --arg remote "$expected" \
-      '{ok: true, state: "waiting", id: $id, remote: $remote}'
+    jq -nc --arg id "$id" --arg remote "$expected" --arg kind "$kind" \
+      '{ok: true, state: "waiting", id: $id, remote: $remote, kind: $kind}'
     return 0
   fi
 
   if ! jq -e . "$verdict_path" >/dev/null 2>&1; then
-    jq -nc --arg id "$id" --arg summary "invalid scan result" \
-      '{ok: true, state: "block", id: $id, summary: $summary}'
+    jq -nc --arg id "$id" --arg summary "invalid scan result" --arg kind "$kind" \
+      '{ok: true, state: "block", id: $id, summary: $summary, kind: $kind}'
     return 0
   fi
 
@@ -606,8 +643,8 @@ cmd_scan_status() {
   summary=$(jq -r '.summary // empty' "$verdict_path")
 
   if [[ $plugin_id != "$id" || -z $got || $got != "$expected" ]]; then
-    jq -nc --arg id "$id" --arg summary "${summary:-scan result did not match this update}" \
-      '{ok: true, state: "block", id: $id, summary: $summary}'
+    jq -nc --arg id "$id" --arg summary "${summary:-scan result did not match this update}" --arg kind "$kind" \
+      '{ok: true, state: "block", id: $id, summary: $summary, kind: $kind}'
     return 0
   fi
   if [[ $verdict == CLEAR ]]; then
@@ -625,7 +662,8 @@ cmd_scan_status() {
     --arg state "$state" \
     --arg remote "$got" \
     --arg summary "$summary" \
-    '{ok: true, state: $state, id: $id, remote: $remote, summary: $summary}'
+    --arg kind "$kind" \
+    '{ok: true, state: $state, id: $id, remote: $remote, summary: $summary, kind: $kind}'
 }
 
 cmd_cancel_scan() {
@@ -633,6 +671,99 @@ cmd_cancel_scan() {
   id=$(require_id "${1:-}")
   clear_scan_files "$id"
   jq -nc --arg id "$id" '{ok: true, state: "idle", id: $id}'
+}
+
+cmd_prepare_install_scan() {
+  local url id name repo sha worktree verdict_path prompt_path meta_path prompt errf err real_id
+  url="${1:-}"
+  url="${url//$'\n'/}"
+  [[ -n $url ]] || fail_json "git URL is required"
+  if command -v omarchy-git-url-check >/dev/null; then
+    omarchy-git-url-check "$url" >/dev/null 2>&1 || fail_json "refusing git URL"
+  fi
+  require_default_agent
+  command -v omarchy-agent >/dev/null || fail_json "omarchy-agent is not available"
+
+  id="$INSTALL_SCAN_ID"
+  mkdir -p "$SCAN_DIR" "$TREE_DIR"
+  clear_scan_files "$id"
+  worktree=$(scan_tree_path "$id")
+  rm -rf "$worktree"
+  errf=$(mktemp "$STATE_DIR/clone.XXXXXX")
+  set +e
+  git clone --depth 1 -- "$url" "$worktree" >/dev/null 2>"$errf"
+  local rc=$?
+  set -e
+  err=$(tr '\n' ' ' <"$errf" | sed 's/[[:space:]]\+/ /g')
+  rm -f "$errf"
+  if (( rc != 0 )); then
+    rm -rf "$worktree"
+    fail_json "${err:-clone failed}"
+  fi
+  if ! omarchy-plugin-validate "$worktree" >/dev/null 2>&1; then
+    rm -rf "$worktree"
+    fail_json "plugin validation failed"
+  fi
+  real_id=$(jq -r '.id // empty' "$worktree/manifest.json")
+  name=$(jq -r '.name // empty' "$worktree/manifest.json")
+  [[ -n $real_id ]] || { rm -rf "$worktree"; fail_json "manifest has no id"; }
+  [[ -n $name ]] || name="$real_id"
+  if [[ -d $(plugin_dir "$real_id") ]]; then
+    rm -rf "$worktree"
+    fail_json "plugin '$real_id' is already installed"
+  fi
+  sha=$(git -C "$worktree" rev-parse HEAD 2>/dev/null || true)
+  [[ -n $sha ]] || { rm -rf "$worktree"; fail_json "could not resolve commit"; }
+  repo=$(github_https "$url")
+
+  verdict_path=$(scan_verdict_path "$id")
+  prompt_path=$(scan_prompt_path "$id")
+  meta_path=$(scan_meta_path "$id")
+  write_install_scan_prompt "$real_id" "$name" "$repo" "$sha" "$worktree" "$verdict_path" >"$prompt_path"
+  jq -nc \
+    --arg id "$id" \
+    --arg pluginId "$real_id" \
+    --arg url "$url" \
+    --arg remote "$sha" \
+    --arg worktree "$worktree" \
+    --arg verdict "$verdict_path" \
+    '{id: $id, kind: "install", pluginId: $pluginId, url: $url, remote: $remote, worktree: $worktree, verdictPath: $verdict}' >"$meta_path"
+
+  prompt=$(cat "$prompt_path")
+  omarchy-agent --prompt "$prompt" >/dev/null 2>&1 &
+  disown || true
+
+  jq -nc \
+    --arg id "$id" \
+    --arg pluginId "$real_id" \
+    --arg url "$url" \
+    --arg remote "$sha" \
+    --arg worktree "$worktree" \
+    --arg verdictPath "$verdict_path" \
+    '{ok: true, state: "waiting", kind: "install", id: $id, pluginId: $pluginId, url: $url, remote: $remote, worktree: $worktree, verdictPath: $verdictPath}'
+}
+
+cmd_add() {
+  local url errf out rc err
+  url="${1:-}"
+  url="${url//$'\n'/}"
+  [[ -n $url ]] || fail_json "git URL is required"
+  if command -v omarchy-git-url-check >/dev/null; then
+    omarchy-git-url-check "$url" >/dev/null 2>&1 || fail_json "refusing git URL"
+  fi
+  clear_scan_files "$INSTALL_SCAN_ID"
+
+  errf=$(mktemp "$STATE_DIR/add.XXXXXX")
+  set +e
+  out=$(omarchy plugin add "$url" --yes --enable 2>"$errf")
+  rc=$?
+  set -e
+  err=$(tr '\n' ' ' <"$errf" | sed 's/[[:space:]]\+/ /g')
+  rm -f "$errf"
+  if (( rc != 0 )); then
+    fail_json "${err:-${out:-add failed}}"
+  fi
+  cmd_list
 }
 
 cmd_update() {
@@ -698,8 +829,10 @@ enable) cmd_enable "${1:-}" ;;
 disable) cmd_disable "${1:-}" ;;
 update) cmd_update "${1:-}" ;;
 prepare-scan) cmd_prepare_scan "$@" ;;
+prepare-install-scan) cmd_prepare_install_scan "${1:-}" ;;
 scan-status) cmd_scan_status "${1:-}" ;;
 cancel-scan) cmd_cancel_scan "${1:-}" ;;
+add) cmd_add "${1:-}" ;;
 remove) cmd_remove "${1:-}" ;;
 open) cmd_open "${1:-}" ;;
 -h | --help | help | "") usage ;;

@@ -112,7 +112,11 @@ function gitCount(plugins) {
   return n
 }
 
-function pillTooltip(count, updates, checking, lastError) {
+function pillTooltip(count, updates, checking, lastError, busyKind) {
+  if (busyKind === "scan") return "Plugins · scanning"
+  if (busyKind === "add") return "Plugins · installing"
+  if (busyKind === "update") return "Plugins · updating"
+  if (busyKind === "confirm") return "Plugins · scan clear — decision needed"
   if (checking) return "Plugins · checking"
   if (lastError) return "Plugins · " + clipError(lastError)
   if (updates === 1) return "Plugins · 1 update"
