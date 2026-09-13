@@ -31,6 +31,12 @@ Panel {
   readonly property string lastError: service ? service.lastError : ""
   readonly property bool hasDefaultAgent: service ? service.hasDefaultAgent === true : false
   readonly property bool securityScanOn: service ? service.securityScanOn === true : false
+  readonly property string scanMode: service ? service.scanMode : "off"
+  readonly property var scanModeOptions: [
+    { value: "off", label: "Off" },
+    { value: "confirm", label: "Confirm" },
+    { value: "trust", label: "Trust" }
+  ]
   readonly property int updateCount: service ? service.updateCount : 0
   readonly property double checkedAt: service ? service.checkedAt : 0
   readonly property string metaText: {
@@ -486,12 +492,13 @@ Panel {
           implicitHeight: scanRow.implicitHeight
           height: implicitHeight
 
+          HoverHandler { id: scanHover }
+
           Row {
             id: scanRow
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
             spacing: Style.space(8)
-            opacity: root.hasDefaultAgent ? 1 : 0.45
 
             Text {
               text: "Security scan"
@@ -501,45 +508,35 @@ Panel {
               anchors.verticalCenter: parent.verticalCenter
             }
 
-            Item {
-              implicitWidth: scanSwitch.implicitWidth
-              implicitHeight: scanSwitch.implicitHeight
-              width: implicitWidth
-              height: implicitHeight
+            ScanModeBar {
+              id: scanModeBar
               anchors.verticalCenter: parent.verticalCenter
-
-              ToggleSwitch {
-                id: scanSwitch
-                anchors.centerIn: parent
-                checked: root.securityScanOn
-                interactive: root.hasDefaultAgent && !root.busy
-                cursorRing: true
-                foreground: root.foreground
-                accent: Color.accent
-                onToggled: {
-                  if (!root.service || !root.hasDefaultAgent) return
-                  root.service.setSecurityScan(!root.securityScanOn)
-                }
-              }
-
-              MouseArea {
-                id: scanDisabledHit
-                anchors.fill: parent
-                enabled: !root.hasDefaultAgent
-                hoverEnabled: true
-                acceptedButtons: Qt.NoButton
-              }
-
-              PanelToolTip {
-                visible: scanSwitch.containsMouse || scanDisabledHit.containsMouse
-                text: !root.hasDefaultAgent
-                  ? "Pick a default agent to enable security scans."
-                  : (root.securityScanOn
-                    ? "Scan incoming updates with the default agent"
-                    : "Update without a security scan")
-                fontFamily: root.fontFamily
+              options: root.scanModeOptions
+              value: root.scanMode
+              foreground: root.foreground
+              accent: Color.accent
+              fontFamily: root.fontFamily
+              fontSize: Style.font.caption
+              opacity: root.hasDefaultAgent ? 1 : 0.45
+              onChanged: function(v) {
+                if (root.busy) return
+                if (!root.service) return
+                if (v !== "off" && !root.hasDefaultAgent) return
+                root.service.setScanMode(v)
               }
             }
+          }
+
+          PanelToolTip {
+            visible: scanHover.hovered
+            text: !root.hasDefaultAgent
+              ? "Pick a default agent to enable security scans."
+              : (root.scanMode === "off"
+                ? "Off: update without a scan. This session only."
+                : (root.scanMode === "confirm"
+                  ? "Confirm: scan, then click the thumbs-up to install. This session only."
+                  : "Trust: scan, then update on CLEAR with no extra click. This session only."))
+            fontFamily: root.fontFamily
           }
         }
       }

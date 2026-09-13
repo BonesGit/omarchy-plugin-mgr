@@ -29,7 +29,8 @@ Item {
   property string lastError: ""
   property string defaultAgent: ""
   property bool hasDefaultAgent: false
-  property var scanPref: null
+  // Session-only. Empty means follow defaultScanMode from settings + agent.
+  property string scanModeOverride: ""
 
   readonly property int checkMs: Model.configuredCheckMs(settings)
   readonly property int updateCount: Model.updateCount(plugins)
@@ -37,16 +38,11 @@ Item {
   readonly property int firstPartyCount: Model.filterByFirstParty(plugins, true).length
   // listing is a background refresh — do not freeze the panel on it.
   readonly property bool busy: checking || busyId !== ""
-  readonly property bool securityScanOn: hasDefaultAgent && (scanPref !== null
-    ? scanPref === true
-    : Model.configuredSecurityScan(settings))
-  readonly property bool trustScan: Model.configuredTrustScan(settings)
-
-  onSettingsChanged: {
-    if (root.scanPref === null) return
-    if (Model.configuredSecurityScan(root.settings) === root.scanPref)
-      root.scanPref = null
-  }
+  readonly property string scanMode: scanModeOverride !== ""
+    ? scanModeOverride
+    : Model.defaultScanMode(settings, hasDefaultAgent)
+  readonly property bool securityScanOn: scanMode === "confirm" || scanMode === "trust"
+  readonly property bool trustScan: scanMode === "trust"
 
   readonly property string script:
     Qt.resolvedUrl("bin/plugin-mgr").toString().replace(/^file:\/\//, "")
@@ -187,12 +183,11 @@ Item {
     runAction("update", root.busyId)
   }
 
-  function setSecurityScan(on) {
-    if (!root.hasDefaultAgent) return
-    root.scanPref = on === true
-    if (setProc.running) return
-    setProc.command = ["omarchy", "bar", "set", "io.github.bonesgit.omarchy-plugin-mgr", "securityScan", on ? "true" : "false", "--json"]
-    setProc.running = true
+  function setScanMode(mode) {
+    var m = String(mode || "")
+    if (m !== "off" && m !== "confirm" && m !== "trust") return
+    if (m !== "off" && !root.hasDefaultAgent) return
+    root.scanModeOverride = m
   }
 
   function removePlugin(id) {
@@ -342,16 +337,6 @@ Item {
     id: cancelProc
     stdout: StdioCollector {}
     stderr: StdioCollector {}
-  }
-
-  Process {
-    id: setProc
-    stdout: StdioCollector {}
-    stderr: StdioCollector { id: setErr }
-    onExited: function(code) {
-      if (code !== 0)
-        root.lastError = Model.clipError(setErr.text || "could not save scan setting")
-    }
   }
 
   Timer {
