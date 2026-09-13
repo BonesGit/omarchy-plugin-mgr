@@ -58,8 +58,8 @@ the next time the shell loads:
 | **Confirm** | Agent reviews incoming `FETCH_HEAD`. On `CLEAR`, click the thumbs-up to install. |
 | **Trust** | Same review; `CLEAR` installs with no extra click. |
 
-Defaults: no default agent → **Off**. Agent set and `trustScan` on (the
-schema default) → **Trust**. Agent set and `trustScan` off → **Confirm**.
+Defaults: no default agent → **Off**. Agent set and `trustScan` off (the
+schema default) → **Confirm**. Agent set and `trustScan` on → **Trust**.
 `securityScan` off in settings also starts **Off**. Confirm and Trust do
 nothing until `omarchy default agent` is set.
 

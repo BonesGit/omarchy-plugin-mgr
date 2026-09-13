@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Change:** Default security scan mode is Confirm (`trustScan` false). Trust still available when enabled.
 - **Fix:** Enable/disable row toggle now calls `omarchy plugin enable|disable`. Omarchy's `ToggleSwitch` only emits `toggled()` and does not flip `checked`, so the old handler always no-op'd.
 - **Fix:** Enable/disable/remove no longer prepend Omarchy's human "Enabled/Disabled …" lines onto stdout, so the panel can parse the refreshed plugin list instead of showing "action failed".
 

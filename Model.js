@@ -31,10 +31,11 @@ function configuredSecurityScan(settings) {
   return parseBool(settings.securityScan, true)
 }
 
+// Default off when unset (Confirm mode). Trust only when explicitly enabled.
 function configuredTrustScan(settings) {
   if (!settings || settings.trustScan == null || settings.trustScan === "")
-    return true
-  return parseBool(settings.trustScan, true)
+    return false
+  return parseBool(settings.trustScan, false)
 }
 
 function defaultScanMode(settings, hasAgent) {
