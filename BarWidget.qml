@@ -19,7 +19,13 @@ BarWidget {
   readonly property int updateCount: store ? store.updateCount : 0
   readonly property bool checking: store ? store.checking : false
   readonly property string lastError: store ? store.lastError : ""
+  readonly property string busyKind: store ? store.busyKind : ""
+  readonly property bool pillBusy: busyKind === "scan" || busyKind === "add"
+  readonly property bool pillConfirm: busyKind === "confirm"
+  readonly property string pillIcon: pillBusy ? "󰑐" : (pillConfirm ? "󰀪" : "󰐱")
   readonly property color statusColor: {
+    if (pillBusy) return Color.accent
+    if (pillConfirm) return themeYellow
     if (!store || !store.loaded) return Color.muted
     if (store.lastError !== "") return themeYellow
     if (store.updateCount > 0) return Color.accent
@@ -27,7 +33,7 @@ BarWidget {
   }
   readonly property real openPanelIndicatorWidth: root.vertical ? 0 : contentRow.implicitWidth
   readonly property real openPanelIndicatorHeight: Math.max(Style.space(10), Math.round(Style.bar.iconSlot * 0.55))
-  readonly property string tooltip: Model.pillTooltip(pluginCount, updateCount, checking, lastError)
+  readonly property string tooltip: Model.pillTooltip(pluginCount, updateCount, checking, lastError, busyKind)
 
   property color themeGreen: "#3ecf6a"
   property color themeYellow: "#e0b44b"
@@ -139,15 +145,27 @@ BarWidget {
       implicitHeight: height
 
       OpticalGlyph {
+        id: hGlyph
         anchors.fill: parent
-        text: "󰐱"
+        text: root.pillIcon
         fontFamily: button.fontFamily
         fontSize: Style.bar.iconFont
-        color: button.active && button.useActiveColor ? button.activeColor : button.foreground
+        color: root.pillBusy || root.pillConfirm
+          ? root.statusColor
+          : (button.active && button.useActiveColor ? button.activeColor : button.foreground)
+        transformOrigin: Item.Center
+        RotationAnimation on rotation {
+          from: 0
+          to: 360
+          duration: 900
+          loops: Animation.Infinite
+          running: root.pillBusy
+          onRunningChanged: if (!running) hGlyph.rotation = 0
+        }
       }
 
       Text {
-        visible: root.updateCount > 0
+        visible: !root.pillBusy && !root.pillConfirm && root.updateCount > 0
         text: String(root.updateCount)
         color: button.foreground
         font.family: button.fontFamily
@@ -167,15 +185,27 @@ BarWidget {
       height: Style.bar.iconSlot
 
       OpticalGlyph {
+        id: vGlyph
         anchors.fill: parent
-        text: "󰐱"
+        text: root.pillIcon
         fontFamily: button.fontFamily
         fontSize: Style.bar.iconFont
-        color: button.active && button.useActiveColor ? button.activeColor : button.foreground
+        color: root.pillBusy || root.pillConfirm
+          ? root.statusColor
+          : (button.active && button.useActiveColor ? button.activeColor : button.foreground)
+        transformOrigin: Item.Center
+        RotationAnimation on rotation {
+          from: 0
+          to: 360
+          duration: 900
+          loops: Animation.Infinite
+          running: root.pillBusy
+          onRunningChanged: if (!running) vGlyph.rotation = 0
+        }
       }
 
       Text {
-        visible: root.updateCount > 0
+        visible: !root.pillBusy && !root.pillConfirm && root.updateCount > 0
         text: String(root.updateCount)
         color: button.foreground
         font.family: button.fontFamily

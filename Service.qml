@@ -31,6 +31,9 @@ Item {
   property bool hasDefaultAgent: false
   // Session-only. Empty means follow defaultScanMode from settings + agent.
   property string scanModeOverride: ""
+  property string installUrl: ""
+  property bool installOpen: false
+  readonly property string installScanId: "new.install"
 
   readonly property int checkMs: Model.configuredCheckMs(settings)
   readonly property int updateCount: Model.updateCount(plugins)
@@ -145,10 +148,10 @@ Item {
     if (state === "waiting") return
     if (state === "clear") {
       scanTimer.stop()
-      if (root.trustScan)
-        runAction("update", root.busyId)
-      else
+      if (root.busyId === root.installScanId || !root.trustScan)
         root.busyKind = "confirm"
+      else
+        runAction("update", root.busyId)
       return
     }
     scanTimer.stop()
@@ -180,7 +183,29 @@ Item {
 
   function confirmScanUpdate() {
     if (root.busyKind !== "confirm" || !root.busyId) return
+    if (root.busyId === root.installScanId) {
+      root.addPlugin(root.installUrl)
+      return
+    }
     runAction("update", root.busyId)
+  }
+
+  function addPlugin(url) {
+    url = String(url || "").trim()
+    if (!url || actionProc.running || scanPrepProc.running) return
+    runAction("add", url)
+  }
+
+  function prepareInstallScan(url) {
+    url = String(url || "").trim()
+    if (!url || scanPrepProc.running || actionProc.running) return
+    root.installUrl = url
+    root.installOpen = true
+    root.busyId = root.installScanId
+    root.busyKind = "scan"
+    root.lastError = ""
+    scanPrepProc.command = root.argv("prepare-install-scan", url)
+    scanPrepProc.running = true
   }
 
   function setScanMode(mode) {
