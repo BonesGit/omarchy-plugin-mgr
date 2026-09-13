@@ -30,6 +30,8 @@ Panel {
   readonly property string busyKind: service ? service.busyKind : ""
   readonly property string lastError: service ? service.lastError : ""
   readonly property bool hasDefaultAgent: service ? service.hasDefaultAgent === true : false
+  readonly property bool installOpen: service ? service.installOpen === true : false
+  readonly property bool installWorking: busyId === "new.install" || busyKind === "add"
   readonly property bool securityScanOn: service ? service.securityScanOn === true : false
   readonly property string scanMode: service ? service.scanMode : "off"
   readonly property var scanModeOptions: {
@@ -43,8 +45,8 @@ Panel {
   readonly property int updateCount: service ? service.updateCount : 0
   readonly property double checkedAt: service ? service.checkedAt : 0
   readonly property string metaText: {
-    if (busyKind === "scan") return "scanning with default agent"
-    if (busyKind === "confirm") return "scan clear — confirm update"
+    if (busyKind === "scan") return busyId === "new.install" ? "scanning new plugin" : "scanning with default agent"
+    if (busyKind === "confirm") return busyId === "new.install" ? "scan clear — confirm install" : "scan clear — confirm update"
     if (checking) return "checking remotes"
     if (listing && !loaded) return "reading plugins"
     if (updateCount === 1) return "1 update"
@@ -66,10 +68,23 @@ Panel {
     return false
   }
 
+  function hideInstallUi() {
+    if (root.service) root.service.installOpen = false
+  }
+
+  function abortInstall() {
+    if (root.service && root.busyId === "new.install")
+      root.service.cancelScan()
+    hideInstallUi()
+    if (root.service) root.service.installUrl = ""
+  }
+
   onOpenedChanged: {
     if (opened) {
       now = Date.now()
       if (service && service.firstPartyCount === 0) service.load()
+      if (service && service.busyId === "new.install")
+        service.installOpen = true
       Qt.callLater(function() { if (keyCatcher) keyCatcher.forceActiveFocus() })
     }
   }
@@ -87,8 +102,14 @@ Panel {
     PanelKeyCatcher {
       id: keyCatcher
       anchors.fill: parent
-      blocked: searchField.activeFocus
-      onCloseRequested: root.close()
+      blocked: searchField.activeFocus || (root.installOpen && installField.activeFocus)
+      onCloseRequested: {
+        if (root.installOpen && !root.installWorking) {
+          root.hideInstallUi()
+          return
+        }
+        root.close()
+      }
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onTextKey: function(t) {
         if (t === "r" || t === "R") {
@@ -144,6 +165,24 @@ Panel {
             spacing: Style.space(4)
 
             Button {
+              text: "+"
+              tooltipText: root.installWorking ? "Working on install" : "Install a plugin from a git URL"
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              fontSize: Style.font.caption
+              bordered: true
+              enabled: !root.installWorking
+              onClicked: {
+                if (root.installOpen) {
+                  root.hideInstallUi()
+                  return
+                }
+                if (root.service) root.service.installOpen = true
+                Qt.callLater(function() { if (installField) installField.forceActiveFocus() })
+              }
+            }
+
+            Button {
               text: root.checking ? "Checking" : "Check"
               tooltipText: "Fetch git remotes for every third-party plugin  ( r )"
               foreground: root.foreground
@@ -154,6 +193,124 @@ Panel {
               onClicked: if (root.service) root.service.check()
             }
           }
+        }
+
+        Column {
+          width: parent.width
+          visible: root.installOpen
+          spacing: Style.space(10)
+          height: visible ? implicitHeight : 0
+
+          PanelSeparator { width: parent.width }
+
+          TextField {
+            id: installField
+            width: parent.width
+            placeholderText: "GitHub repo URL"
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            foreground: root.foreground
+            text: root.service ? root.service.installUrl : ""
+            enabled: !root.installWorking
+            onTextChanged: {
+              if (!root.service) return
+              if (text !== root.service.installUrl) root.service.installUrl = text
+            }
+            Keys.onReturnPressed: {
+              if (root.hasDefaultAgent && root.service && String(root.service.installUrl).trim() !== "")
+                root.service.prepareInstallScan(root.service.installUrl)
+            }
+          }
+
+          Text {
+            visible: root.lastError !== "" && root.installOpen
+            width: parent.width
+            text: root.lastError
+            color: Color.urgent
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            wrapMode: Text.WordWrap
+          }
+
+          Item {
+            width: parent.width
+            implicitHeight: Math.max(Style.spacing.controlHeight, installActions.implicitHeight)
+            height: implicitHeight
+
+            Row {
+              id: installActions
+              anchors.right: parent.right
+              spacing: Style.space(6)
+
+              Button {
+                visible: root.busyId === "new.install" && root.busyKind === "scan"
+                iconText: "󰅖"
+                text: "Cancel"
+                tooltipText: "Cancel security scan"
+                foreground: Color.urgent
+                accent: Color.urgent
+                fontFamily: root.fontFamily
+                fontSize: Style.font.caption
+                bordered: true
+                onClicked: root.abortInstall()
+              }
+
+              Button {
+                visible: root.busyId === "new.install" && root.busyKind === "confirm"
+                iconText: "󰔓"
+                text: "Approve"
+                tooltipText: "Install this plugin"
+                foreground: Color.accent
+                accent: Color.accent
+                fontFamily: root.fontFamily
+                fontSize: Style.font.caption
+                bordered: true
+                onClicked: if (root.service) root.service.confirmScanUpdate()
+              }
+
+              Button {
+                visible: root.busyId === "new.install" && root.busyKind === "confirm"
+                iconText: "󰔑"
+                text: "Reject"
+                tooltipText: "Cancel the install"
+                foreground: Color.urgent
+                accent: Color.urgent
+                fontFamily: root.fontFamily
+                fontSize: Style.font.caption
+                bordered: true
+                onClicked: root.abortInstall()
+              }
+
+              Button {
+                visible: !root.installWorking
+                text: "Secure Install"
+                tooltipText: root.hasDefaultAgent
+                  ? "Scan with the default agent, then confirm"
+                  : "Pick a default agent to enable Secure Install."
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+                fontSize: Style.font.caption
+                bordered: true
+                enabled: root.hasDefaultAgent && root.service && String(root.service.installUrl).trim() !== "" && !root.busy
+                onClicked: if (root.service) root.service.prepareInstallScan(root.service.installUrl)
+              }
+
+              Button {
+                visible: !root.installWorking
+                text: "Insecure Install"
+                tooltipText: "Install without a security scan"
+                foreground: Color.urgent
+                accent: Color.urgent
+                fontFamily: root.fontFamily
+                fontSize: Style.font.caption
+                bordered: true
+                enabled: root.service && String(root.service.installUrl).trim() !== "" && !root.busy
+                onClicked: if (root.service) root.service.addPlugin(root.service.installUrl)
+              }
+            }
+          }
+
+          PanelSeparator { width: parent.width }
         }
 
         Item {
@@ -579,6 +736,7 @@ Panel {
           }
         }
       }
+
     }
   }
 
@@ -588,5 +746,22 @@ Panel {
     repeat: true
     triggeredOnStart: true
     onTriggered: root.now = Date.now()
+  }
+
+  property string _prevBusyKind: ""
+  property string _scanBusyId: ""
+  onBusyKindChanged: {
+    var prev = root._prevBusyKind
+    root._prevBusyKind = root.busyKind
+    if (root.busyKind === "scan" || root.busyKind === "confirm")
+      root._scanBusyId = root.busyId
+    if (prev === "add" && root.busyKind === "") {
+      if (root.service) {
+        root.service.installOpen = false
+        if (root.lastError === "") root.service.installUrl = ""
+      }
+    }
+    if (prev === "scan" && root.busyKind === "" && root.installOpen && root.lastError !== "" && root._scanBusyId === "new.install")
+      root.hideInstallUi()
   }
 }
