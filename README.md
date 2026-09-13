@@ -4,10 +4,11 @@ Omarchy bar widget that lists shell plugins in **Third Party** and **First Party
 tabs. Actions to enable/disable, check for updates, visit git repo, remove, and a security scanner before updating.
 
 > [!IMPORTANT]
-> **Security scan feature** Uses your default AI agent to perform security scans on plugin updates. 
-> Scan will look for malware, exploits, and data leakage. The plugin
+> **Security scan feature** Use your default AI agent to perform security scans on plugin updates. 
+> Scans will look for malware, exploits, and data leakage. The plugin
 > updates only if that scan reports clear. Toggle **Security scan** at the
-> bottom of the panel (`omarchy default agent` to enable it).
+> bottom of the panel. Set **Off**, **Confirm**, or **Trust**
+> at the bottom of the panel. Confirm and Trust need `omarchy default agent` to enable it.
 
 Plugin id: `io.github.bonesgit.omarchy-plugin-mgr`
 
@@ -34,25 +35,38 @@ First-party rows can be enabled or disabled. They cannot be removed or git-updat
 - **Enable / disable** — `omarchy plugin enable|disable`
 - **Check** — `git fetch origin HEAD` then `rev-list HEAD..FETCH_HEAD` (same
   comparison `omarchy plugin update` uses)
-- **Update** — `omarchy plugin update <id> --yes`. If **Security scan** is on,
-  the default coding agent reviews incoming commits first
-  (malware, security, data leakage). The update runs only when that scan
-  writes `CLEAR`.
+- **Update** — `omarchy plugin update <id> --yes`. The agent scan runs only
+  from this panel, not from the CLI.
 - **Remove** — right-click a row to arm it (urgent border, 4s), then left-click **Remove**
 - **Repo** — `xdg-open` the origin URL (or `repository` / `homepage` in the
   manifest)
-
-**Scan** defaults on when a default agent is set (`omarchy default agent`),
-and is shown but disabled (with a tooltip) until one is. It is an LLM
-review via `omarchy agent prompt`, not a sandbox: the agent is launched
-with Omarchy's usual auto-approve flags against a detached checkout of
-`FETCH_HEAD`. The update icon turns into a red X to drop the scan
-without updating. The agent window is not killed.
 
 Periodic checks default to every 24 hours (bar setting `checkHours`), counted
 from the last check stored in `~/.local/state/omarchy/plugin-mgr/last-check.json`.
 Shell start and plugin load do not fetch remotes. Right-click the pill, **Check**
 in the panel, or `r` in the panel, runs a check now.
+
+## Security scan
+
+Three modes on the panel footer (this session only — they do not write
+settings). Widget settings `securityScan` and `trustScan` choose the default
+the next time the shell loads:
+
+| Mode | What Update does |
+| --- | --- |
+| **Off** | Update immediately, no agent. |
+| **Confirm** | Agent reviews incoming `FETCH_HEAD`. On `CLEAR`, click the thumbs-up to install. |
+| **Trust** | Same review; `CLEAR` installs with no extra click. |
+
+Defaults: no default agent → **Off**. Agent set and `trustScan` on (the
+schema default) → **Trust**. Agent set and `trustScan` off → **Confirm**.
+`securityScan` off in settings also starts **Off**. Confirm and Trust do
+nothing until `omarchy default agent` is set.
+
+This is an LLM review via `omarchy agent prompt`, not a sandbox. Omarchy
+launches the agent with its usual auto-approve flags against a detached
+checkout. During the scan the update icon is a red X (cancel). The agent
+window is not killed on cancel.
 
 ## Install
 
@@ -65,7 +79,8 @@ omarchy plugin add https://github.com/BonesGit/omarchy-plugin-mgr.git --enable
 ```bash
 omarchy plugin update io.github.bonesgit.omarchy-plugin-mgr
 ```
-Or update itself in the plugin panel.
+
+Or use Plugin Manager to update itself.
 
 ## Remove
 
