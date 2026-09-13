@@ -645,9 +645,9 @@ cmd_update() {
   write_cache "$cache"
 
   cmd_list
-  # Live bar widgets do not pick up a git pull; restart after stdout is out.
-  nohup bash -c 'sleep 0.4; omarchy restart shell' >/dev/null 2>&1 &
-  disown || true
+  # Detach from this Process's group. A git pull hot-reloads QML and
+  # Quickshell otherwise kills the nohup child before the restart runs.
+  setsid -f bash -c 'sleep 1; omarchy restart shell' >/dev/null 2>&1 || true
 }
 
 cmd_remove() {
