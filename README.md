@@ -3,6 +3,12 @@
 Omarchy bar widget that lists shell plugins in **Third Party** and **First Party**
 tabs, with enable/disable, git update checks, update, remove, and a view repo button.
 
+> [!IMPORTANT]
+> **Security scan before update.** Incoming commits are reviewed by your Omarchy
+> default coding agent for malware, exploits, and data leakage. The plugin
+> updates only if that scan reports clear. Toggle **Security scan** at the
+> bottom of the panel (`omarchy default agent` to enable it).
+
 Plugin id: `io.github.bonesgit.omarchy-plugin-mgr`
 
 ![Plugin Manager](preview.png)
@@ -28,8 +34,8 @@ First-party rows can be enabled or disabled. They cannot be removed or git-updat
 - **Enable / disable** — `omarchy plugin enable|disable`
 - **Check** — `git fetch origin HEAD` then `rev-list HEAD..FETCH_HEAD` (same
   comparison `omarchy plugin update` uses)
-- **Update** — `omarchy plugin update <id> --yes`. If **Scan** is on in the
-  panel header, the default coding agent reviews incoming commits first
+- **Update** — `omarchy plugin update <id> --yes`. If **Security scan** is on,
+  the default coding agent reviews incoming commits first
   (malware, security, data leakage). The update runs only when that scan
   writes `CLEAR`.
 - **Remove** — right-click a row to arm it (urgent border, 4s), then left-click **Remove**
