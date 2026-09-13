@@ -1,7 +1,8 @@
 # Plugin Manager
 
-Omarchy bar widget that lists shell plugins in **Third Party** and **First Party**
-tabs. Actions to enable/disable, check for updates, visit git repo, remove, and a security scanner before updating.
+Omarchy bar widget that lists plugins in **Third Party** and **First Party**
+tabs. Actions to check for updates, install and update from a git URL, enable/disable, visit
+git repo, and remove plugins. With support for an AI prompt to scan for security, malware and data leakage concerns.
 
 > [!IMPORTANT]
 > **Security scan feature** Use your default AI agent to perform security scans on plugin updates. 
@@ -32,6 +33,11 @@ First-party rows can be enabled or disabled. They cannot be removed or git-updat
 
 ## Actions
 
+- **Install** — `+` opens a git URL field. **Secure Install** clones and scans
+  with the default agent; on `CLEAR`, click **Approve** to add (new installs
+  never auto-trust). **Insecure Install** runs `omarchy plugin add <url> --yes
+  --enable` with no scan. Click `+` again to close the strip. Failures stay
+  on the strip and show at the bottom of the panel.
 - **Enable / disable** — `omarchy plugin enable|disable`
 - **Check** — `git fetch origin HEAD` then `rev-list HEAD..FETCH_HEAD` (same
   comparison `omarchy plugin update` uses)
@@ -62,6 +68,10 @@ Defaults: no default agent → **Off**. Agent set and `trustScan` off (the
 schema default) → **Confirm**. Agent set and `trustScan` on → **Trust**.
 `securityScan` off in settings also starts **Off**. Confirm and Trust do
 nothing until `omarchy default agent` is set.
+
+Footer Off / Confirm / Trust apply to **Update** on an installed plugin.
+New installs use **Secure Install** / **Insecure Install** instead; Secure
+always waits for Approve after `CLEAR`.
 
 This is an LLM review via `omarchy agent prompt`, not a sandbox. Omarchy
 launches the agent with its usual auto-approve flags against a detached

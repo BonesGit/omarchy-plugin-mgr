@@ -222,16 +222,6 @@ Panel {
             }
           }
 
-          Text {
-            visible: root.lastError !== "" && root.installOpen
-            width: parent.width
-            text: root.lastError
-            color: Color.urgent
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-          }
-
           Item {
             width: parent.width
             implicitHeight: Math.max(Style.spacing.controlHeight, installActions.implicitHeight)
@@ -752,19 +742,14 @@ Panel {
   }
 
   property string _prevBusyKind: ""
-  property string _scanBusyId: ""
   onBusyKindChanged: {
     var prev = root._prevBusyKind
     root._prevBusyKind = root.busyKind
-    if (root.busyKind === "scan" || root.busyKind === "confirm")
-      root._scanBusyId = root.busyId
-    if (prev === "add" && root.busyKind === "") {
+    if (prev === "add" && root.busyKind === "" && root.lastError === "") {
       if (root.service) {
         root.service.installOpen = false
-        if (root.lastError === "") root.service.installUrl = ""
+        root.service.installUrl = ""
       }
     }
-    if (prev === "scan" && root.busyKind === "" && root.installOpen && root.lastError !== "" && root._scanBusyId === "new.install")
-      root.hideInstallUi()
   }
 }
