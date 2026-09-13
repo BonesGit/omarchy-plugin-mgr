@@ -6,7 +6,6 @@
   "author": "BonesGit",
   "license": "MIT",
   "description": "Lists shell plugins in Third Party and First Party tabs. Actions to enable/disable, check for updates, visit git repo, remove, and a security scanner before updating.",
-
   "homepage": "https://github.com/BonesGit/omarchy-plugin-mgr",
   "repository": "https://github.com/BonesGit/omarchy-plugin-mgr",
   "kinds": [
