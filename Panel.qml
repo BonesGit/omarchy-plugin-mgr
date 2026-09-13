@@ -331,9 +331,16 @@ Panel {
                 onTriggered: card._reject = false
               }
 
-              on_confirmChanged: if (!card._confirm) {
+              function clearRejectIfNeeded() {
+                if (root.busyKind === "confirm" && root.busyId === modelData.id) return
                 card._reject = false
                 rejectDisarm.stop()
+              }
+
+              Connections {
+                target: root
+                function onBusyKindChanged() { card.clearRejectIfNeeded() }
+                function onBusyIdChanged() { card.clearRejectIfNeeded() }
               }
 
               Item {
