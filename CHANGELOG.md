@@ -1,12 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 
+- **New:** Install from a git URL in the panel (`+`). Secure Install scans then waits for Approve; Insecure Install adds immediately. New installs never auto-trust.
 - **Change:** First Party tab is now labeled Omarchy.
-- **Fix:** Bar pill spinner also runs while checking remotes for updates.
 - **Change:** Default security scan mode is Confirm (`trustScan` false). Trust still available when enabled.
 - **Fix:** Enable/disable row toggle now calls `omarchy plugin enable|disable`. Omarchy's `ToggleSwitch` only emits `toggled()` and does not flip `checked`, so the old handler always no-op'd.
 - **Fix:** Enable/disable/remove no longer prepend Omarchy's human "Enabled/Disabled …" lines onto stdout, so the panel can parse the refreshed plugin list instead of showing "action failed".
+- **Fix:** Bar pill spinner while checking remotes, scanning, installing, or updating. Yellow warning triangle while Approve/Reject is waiting.
 
 ## 1.0.0
 
