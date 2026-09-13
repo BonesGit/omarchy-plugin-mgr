@@ -481,6 +481,8 @@ or
 {"verdict":"BLOCK","pluginId":"${id}","remote":"${remote_sha}","summary":"<one line>"}
 
 CLEAR only if nothing dangerous or leaky stands out. If unsure, BLOCK.
+
+Write the JSON file once, then stop. The plugin manager will delete that file and the worktree; that is expected. Do not recreate them.
 PROMPT
 }
 
