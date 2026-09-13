@@ -24,7 +24,8 @@
     "defaultSection": "right",
     "defaults": {
       "checkHours": 24,
-      "securityScan": true
+      "securityScan": true,
+      "trustScan": true
     },
     "schema": [
       {
@@ -43,6 +44,13 @@
         "label": "Scan updates with default agent",
         "defaultValue": true,
         "description": "When on, Update launches your Omarchy default coding agent to review incoming commits for malware, security issues, and data leakage. The plugin updates only if that scan reports clear. The panel switch is disabled until a default agent is set."
+      },
+      {
+        "key": "trustScan",
+        "type": "boolean",
+        "label": "Trust a clear scan and update immediately",
+        "defaultValue": true,
+        "description": "When on, a CLEAR security scan starts the update with no extra click. When off, the update icon becomes a thumbs-up and you must click it to install."
       }
     ]
   }

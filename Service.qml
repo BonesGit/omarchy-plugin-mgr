@@ -40,6 +40,7 @@ Item {
   readonly property bool securityScanOn: hasDefaultAgent && (scanPref !== null
     ? scanPref === true
     : Model.configuredSecurityScan(settings))
+  readonly property bool trustScan: Model.configuredTrustScan(settings)
 
   onSettingsChanged: {
     if (root.scanPref === null) return
@@ -148,7 +149,10 @@ Item {
     if (state === "waiting") return
     if (state === "clear") {
       scanTimer.stop()
-      runAction("update", root.busyId)
+      if (root.trustScan)
+        runAction("update", root.busyId)
+      else
+        root.busyKind = "confirm"
       return
     }
     scanTimer.stop()
@@ -166,7 +170,7 @@ Item {
   }
 
   function cancelScan() {
-    if (root.busyKind !== "scan") return
+    if (root.busyKind !== "scan" && root.busyKind !== "confirm") return
     scanTimer.stop()
     var id = root.busyId
     root.busyId = ""
@@ -176,6 +180,11 @@ Item {
       cancelProc.command = root.argv("cancel-scan", id)
       cancelProc.running = true
     }
+  }
+
+  function confirmScanUpdate() {
+    if (root.busyKind !== "confirm" || !root.busyId) return
+    runAction("update", root.busyId)
   }
 
   function setSecurityScan(on) {

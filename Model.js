@@ -31,6 +31,12 @@ function configuredSecurityScan(settings) {
   return parseBool(settings.securityScan, true)
 }
 
+function configuredTrustScan(settings) {
+  if (!settings || settings.trustScan == null || settings.trustScan === "")
+    return true
+  return parseBool(settings.trustScan, true)
+}
+
 function msUntilDue(checkedAt, checkMs) {
   var last = Number(checkedAt || 0)
   var interval = Number(checkMs || 0)

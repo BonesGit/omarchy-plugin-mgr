@@ -35,6 +35,7 @@ Panel {
   readonly property double checkedAt: service ? service.checkedAt : 0
   readonly property string metaText: {
     if (busyKind === "scan") return "scanning with default agent"
+    if (busyKind === "confirm") return "scan clear — confirm update"
     if (checking) return "checking remotes"
     if (listing && !loaded) return "reading plugins"
     if (updateCount === 1) return "1 update"
@@ -266,19 +267,22 @@ Panel {
               property bool _on: modelData.enabled === true
               property bool _rowBusy: root.busyId === modelData.id
               property bool _scanning: root.busyKind === "scan" && root.busyId === modelData.id
+              property bool _confirm: root.busyKind === "confirm" && root.busyId === modelData.id
               property bool _armed: false
               color: Style.controlFill(false, _hot, root.foreground, Color.accent)
               borderSpec: card._armed
                 ? Border.flat(Color.urgent, Math.max(1, Style.hoverBorderWidth))
-                : (card._scanning
+                : (card._confirm
                   ? Border.flat(Color.accent, Math.max(1, Style.hoverBorderWidth))
-                  : (modelData.updateAvailable
+                  : (card._scanning
                     ? Border.flat(Color.accent, Math.max(1, Style.hoverBorderWidth))
-                    : (_on
-                      ? Border.controlSpec(_hot ? "hover-cursor" : "selected", root.foreground, Color.accent)
-                      : Border.controlSpec(_hot ? "hover-cursor" : "normal", root.foreground, Color.accent))))
+                    : (modelData.updateAvailable
+                      ? Border.flat(Color.accent, Math.max(1, Style.hoverBorderWidth))
+                      : (_on
+                        ? Border.controlSpec(_hot ? "hover-cursor" : "selected", root.foreground, Color.accent)
+                        : Border.controlSpec(_hot ? "hover-cursor" : "normal", root.foreground, Color.accent)))))
               implicitHeight: row.implicitHeight + Style.space(10)
-              opacity: (_rowBusy && !card._scanning && !card._armed) ? 0.55 : 1
+              opacity: (_rowBusy && !card._scanning && !card._confirm && !card._armed) ? 0.55 : 1
 
               Behavior on color { ColorAnimation { duration: 100 } }
               Behavior on opacity { NumberAnimation { duration: 100 } }
@@ -387,20 +391,26 @@ Panel {
                   PanelActionButton {
                     anchors.verticalCenter: parent.verticalCenter
                     opacity: modelData.git === true ? 1 : 0
-                    iconText: card._scanning ? "󰅖" : "󰚰"
-                    tooltipText: card._scanning ? "Cancel security scan"
+                    iconText: card._confirm ? "󰔓" : (card._scanning ? "󰅖" : "󰚰")
+                    tooltipText: card._confirm ? "Security scan clear. Click to install the update."
+                      : (card._scanning ? "Cancel security scan"
                       : (modelData.git !== true ? ""
                         : (Model.debugForceUpdateButtons() && !modelData.updateAvailable
                           ? "Debug: force update/scan"
                           : (!modelData.updateAvailable ? "No upstream commits"
                             : (root.securityScanOn
                               ? "Scan with default agent, then update if clear"
-                              : "Update from origin"))))
-                    foreground: card._scanning ? Color.urgent
-                      : ((modelData.updateAvailable || Model.debugForceUpdateButtons()) ? Color.accent : root.dim)
+                              : "Update from origin")))))
+                    foreground: card._confirm ? Color.accent
+                      : (card._scanning ? Color.urgent
+                      : ((modelData.updateAvailable || Model.debugForceUpdateButtons()) ? Color.accent : root.dim))
                     fontFamily: root.fontFamily
-                    enabled: card._scanning || (modelData.git === true && !root.busy && (modelData.updateAvailable === true || Model.debugForceUpdateButtons()))
+                    enabled: card._confirm || card._scanning || (modelData.git === true && !root.busy && (modelData.updateAvailable === true || Model.debugForceUpdateButtons()))
                     onClicked: {
+                      if (card._confirm) {
+                        if (root.service) root.service.confirmScanUpdate()
+                        return
+                      }
                       if (card._scanning) {
                         if (root.service) root.service.cancelScan()
                         return
@@ -444,7 +454,7 @@ Panel {
               }
 
               Button {
-                visible: card._armed && !card._scanning
+                visible: card._armed && !card._scanning && !card._confirm
                 anchors.centerIn: parent
                 z: 2
                 text: "Remove"
