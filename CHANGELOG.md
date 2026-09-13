@@ -1,13 +1,19 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
 - **New:** Security scan on panel Update — Off / Confirm / Trust. Confirm waits for a thumbs-up after `CLEAR`; Trust installs immediately. Defaults follow `securityScan` / `trustScan` and whether a default agent is set. Panel clicks are session-only.
 - **New:** Incoming commits are reviewed by `omarchy agent prompt` (malware, exploits, data leakage), not a sandbox.
 - **Fix:** Cancel an in-flight scan with a red X on the update icon.
+- **Fix:** After a confirmed `CLEAR`, right-click thumbs-down (then right-click again) aborts the update.
 - **Fix:** Shell restart after update is queued with `systemd-run` before a self-update pull, so hot-reload cannot kill it.
 - **Fix:** Subscript update count on the bar pill.
 - **Fix:** Per-chip tooltips on Off / Confirm / Trust.
+- **Fix:** Panel failed to open (`on_confirmChanged` is invalid QML).
+
+## 0.9.2
+
+- **Chore:** Version bump.
 
 ## 0.9.1
 
