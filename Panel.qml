@@ -532,10 +532,10 @@ Panel {
             text: !root.hasDefaultAgent
               ? "Pick a default agent to enable security scans."
               : (root.scanMode === "off"
-                ? "Off: update without a scan. This session only."
+                ? "Off: update without a scan."
                 : (root.scanMode === "confirm"
-                  ? "Confirm: scan, then click the thumbs-up to install. This session only."
-                  : "Trust: scan, then update on CLEAR with no extra click. This session only."))
+                  ? "Confirm: scan, then click the thumbs-up to install."
+                  : "Trust: scan, then update on CLEAR with no extra click."))
             fontFamily: root.fontFamily
           }
         }
