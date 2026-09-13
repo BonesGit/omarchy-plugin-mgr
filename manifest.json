@@ -5,7 +5,7 @@
   "version": "1.0.0",
   "author": "BonesGit",
   "license": "MIT",
-  "description": "Lists Omarchy plugins in Third Party and First Party tabs. Actions to check for updates, install and update from a git URL, enable/disable, visit git repo, and remove plugins. With support for an AI prompt to scan for security, malware and data leakage concerns.",
+  "description": "Lists Omarchy plugins in Third Party and Omarchy tabs. Actions to check for updates, install and update from a git URL, enable/disable, visit git repo, and remove plugins. With support for an AI prompt to scan for security, malware and data leakage concerns.",
   "homepage": "https://github.com/BonesGit/omarchy-plugin-mgr",
   "repository": "https://github.com/BonesGit/omarchy-plugin-mgr",
   "kinds": [

@@ -1,6 +1,6 @@
 # Plugin Manager
 
-Omarchy bar widget that lists plugins in **Third Party** and **First Party**
+Omarchy bar widget that lists plugins in **Third Party** and **Omarchy**
 tabs. Actions to check for updates, install and update from a git URL, enable/disable, visit
 git repo, and remove plugins. With support for an AI prompt to scan for security, malware and data leakage concerns.
 
@@ -18,7 +18,7 @@ Plugin id: `io.github.bonesgit.omarchy-plugin-mgr`
 ## What it shows
 
 **Third Party** is anything under `~/.config/omarchy/plugins/` that is not
-`omarchy.*`. **First Party** is the stock `omarchy.*` set.
+`omarchy.*`. **Omarchy** is the stock `omarchy.*` set.
 
 Each row:
 
@@ -29,7 +29,7 @@ Each row:
 
 Filter box next to the tabs matches name or id on both tabs.
 
-First-party rows can be enabled or disabled. They cannot be removed or git-updated.
+Omarchy rows can be enabled or disabled. They cannot be removed or git-updated.
 
 ## Actions
 

@@ -323,7 +323,7 @@ Panel {
             value: root.partyTab
             options: [
               { value: "third", label: "Third Party" },
-              { value: "first", label: "First Party" }
+              { value: "first", label: "Omarchy" }
             ]
             onChanged: function(v) { root.partyTab = v }
           }
@@ -388,7 +388,7 @@ Panel {
           horizontalAlignment: Text.AlignHCenter
           topPadding: Style.space(22)
           bottomPadding: Style.space(22)
-          text: !root.loaded ? "Reading plugins\u2026" : (String(root.pluginQuery).trim() !== "" ? "No matching plugins" : (root.partyTab === "first" ? "No first-party plugins" : "No third-party plugins"))
+          text: !root.loaded ? "Reading plugins\u2026" : (String(root.pluginQuery).trim() !== "" ? "No matching plugins" : (root.partyTab === "first" ? "No Omarchy plugins" : "No third-party plugins"))
           wrapMode: Text.WordWrap
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Change:** First Party tab is now labeled Omarchy.
 - **Fix:** Bar pill spinner also runs while checking remotes for updates.
 - **Change:** Default security scan mode is Confirm (`trustScan` false). Trust still available when enabled.
 - **Fix:** Enable/disable row toggle now calls `omarchy plugin enable|disable`. Omarchy's `ToggleSwitch` only emits `toggled()` and does not flip `checked`, so the old handler always no-op'd.
