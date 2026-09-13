@@ -277,6 +277,7 @@ Panel {
               property bool _rowBusy: root.busyId === modelData.id
               property bool _scanning: root.busyKind === "scan" && root.busyId === modelData.id
               property bool _confirm: root.busyKind === "confirm" && root.busyId === modelData.id
+              property bool _reject: false
               property bool _armed: false
               color: Style.controlFill(false, _hot, root.foreground, Color.accent)
               borderSpec: card._armed
@@ -322,6 +323,17 @@ Panel {
                 id: disarm
                 interval: 4000
                 onTriggered: card._armed = false
+              }
+
+              Timer {
+                id: rejectDisarm
+                interval: 4000
+                onTriggered: card._reject = false
+              }
+
+              on_confirmChanged: if (!card._confirm) {
+                card._reject = false
+                rejectDisarm.stop()
               }
 
               Item {
@@ -397,34 +409,65 @@ Panel {
                   anchors.verticalCenter: parent.verticalCenter
                   spacing: Style.space(2)
 
-                  PanelActionButton {
+                  Item {
+                    implicitWidth: updateBtn.implicitWidth
+                    implicitHeight: updateBtn.implicitHeight
+                    width: implicitWidth
+                    height: implicitHeight
                     anchors.verticalCenter: parent.verticalCenter
-                    opacity: modelData.git === true ? 1 : 0
-                    iconText: card._confirm ? "󰔓" : (card._scanning ? "󰅖" : "󰚰")
-                    tooltipText: card._confirm ? "Security scan clear. Click to install the update."
-                      : (card._scanning ? "Cancel security scan"
-                      : (modelData.git !== true ? ""
-                        : (Model.debugForceUpdateButtons() && !modelData.updateAvailable
-                          ? "Debug: force update/scan"
-                          : (!modelData.updateAvailable ? "No upstream commits"
-                            : (root.securityScanOn
-                              ? "Scan with default agent, then update if clear"
-                              : "Update from origin")))))
-                    foreground: card._confirm ? Color.accent
-                      : (card._scanning ? Color.urgent
-                      : ((modelData.updateAvailable || Model.debugForceUpdateButtons()) ? Color.accent : root.dim))
-                    fontFamily: root.fontFamily
-                    enabled: card._confirm || card._scanning || (modelData.git === true && !root.busy && (modelData.updateAvailable === true || Model.debugForceUpdateButtons()))
-                    onClicked: {
-                      if (card._confirm) {
-                        if (root.service) root.service.confirmScanUpdate()
-                        return
+
+                    PanelActionButton {
+                      id: updateBtn
+                      anchors.fill: parent
+                      opacity: modelData.git === true ? 1 : 0
+                      iconText: card._confirm
+                        ? (card._reject ? "󰔑" : "󰔓")
+                        : (card._scanning ? "󰅖" : "󰚰")
+                      tooltipText: card._confirm
+                        ? (card._reject
+                          ? "Right-click again to cancel the update."
+                          : "Left-click to install the update. Right-click to reject.")
+                        : (card._scanning ? "Cancel security scan"
+                        : (modelData.git !== true ? ""
+                          : (Model.debugForceUpdateButtons() && !modelData.updateAvailable
+                            ? "Debug: force update/scan"
+                            : (!modelData.updateAvailable ? "No upstream commits"
+                              : (root.securityScanOn
+                                ? "Scan with default agent, then update if clear"
+                                : "Update from origin")))))
+                      foreground: (card._confirm && card._reject) || card._scanning ? Color.urgent
+                        : (card._confirm || modelData.updateAvailable || Model.debugForceUpdateButtons() ? Color.accent : root.dim)
+                      hoverColor: (card._confirm && card._reject) || card._scanning ? Color.urgent : updateBtn.foreground
+                      fontFamily: root.fontFamily
+                      enabled: card._confirm || card._scanning || (modelData.git === true && !root.busy && (modelData.updateAvailable === true || Model.debugForceUpdateButtons()))
+                      onClicked: {
+                        if (card._confirm) {
+                          if (card._reject) return
+                          if (root.service) root.service.confirmScanUpdate()
+                          return
+                        }
+                        if (card._scanning) {
+                          if (root.service) root.service.cancelScan()
+                          return
+                        }
+                        if (root.service) root.service.updatePlugin(modelData.id)
                       }
-                      if (card._scanning) {
-                        if (root.service) root.service.cancelScan()
-                        return
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      acceptedButtons: Qt.RightButton
+                      enabled: card._confirm
+                      onClicked: {
+                        if (card._reject) {
+                          card._reject = false
+                          rejectDisarm.stop()
+                          if (root.service) root.service.cancelScan()
+                          return
+                        }
+                        card._reject = true
+                        rejectDisarm.restart()
                       }
-                      if (root.service) root.service.updatePlugin(modelData.id)
                     }
                   }
 
