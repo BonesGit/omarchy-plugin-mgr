@@ -1,7 +1,7 @@
 # Plugin Manager
 
 Omarchy bar widget that lists shell plugins in **Third Party** and **First Party**
-tabs, with enable/disable, git update checks, update, remove, and a view repo button.
+tabs. Actions to enable/disable, check for updates, visit git repo, remove, and a security scanner before updating.
 
 > [!IMPORTANT]
 > **Security scan feature** Uses your default AI agent to perform security scans on plugin updates. 
