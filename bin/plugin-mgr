@@ -416,6 +416,20 @@ fail_json() {
   exit 0
 }
 
+# Queue a user-session restart BEFORE git pull. Omarchy hot-reloads QML as
+# soon as files change and kills this Process, so a restart scheduled at the
+# end of update never runs. systemd-run --user keeps Hyprland's environment.
+schedule_shell_restart() {
+  systemctl --user stop plugin-mgr-restart-shell.service plugin-mgr-restart-shell.timer >/dev/null 2>&1 || true
+  systemd-run --user --quiet --collect --on-active=4s \
+    --unit=plugin-mgr-restart-shell.service \
+    /usr/bin/omarchy-restart-shell >/dev/null 2>&1 || true
+}
+
+cancel_shell_restart() {
+  systemctl --user stop plugin-mgr-restart-shell.service plugin-mgr-restart-shell.timer >/dev/null 2>&1 || true
+}
+
 scan_meta_path() { echo "$SCAN_DIR/$1.meta.json"; }
 scan_prompt_path() { echo "$SCAN_DIR/$1.prompt"; }
 scan_verdict_path() { echo "$SCAN_DIR/$1.json"; }
@@ -626,6 +640,8 @@ cmd_update() {
   [[ -d $dir/.git ]] || fail_json "plugin '$id' is not a git checkout"
   clear_scan_files "$id"
 
+  schedule_shell_restart
+
   errf=$(mktemp "$STATE_DIR/update.XXXXXX")
   set +e
   out=$(omarchy plugin update "$id" --yes 2>"$errf")
@@ -634,6 +650,7 @@ cmd_update() {
   err=$(tr '\n' ' ' <"$errf" | sed 's/[[:space:]]\+/ /g')
   rm -f "$errf"
   if (( rc != 0 )); then
+    cancel_shell_restart
     fail_json "${err:-${out:-update failed}}"
   fi
 
@@ -647,9 +664,6 @@ cmd_update() {
   write_cache "$cache"
 
   cmd_list
-  # Detach from this Process's group. A git pull hot-reloads QML and
-  # Quickshell otherwise kills the nohup child before the restart runs.
-  setsid -f bash -c 'sleep 1; omarchy restart shell' >/dev/null 2>&1 || true
 }
 
 cmd_remove() {
