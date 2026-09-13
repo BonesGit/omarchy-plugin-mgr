@@ -46,7 +46,7 @@ First-party rows can be enabled or disabled. They cannot be removed or git-updat
 and is shown but disabled (with a tooltip) until one is. It is an LLM
 review via `omarchy agent prompt`, not a sandbox: the agent is launched
 with Omarchy's usual auto-approve flags against a detached checkout of
-`FETCH_HEAD`. Cancel (centered on the row, like Remove) drops the scan
+`FETCH_HEAD`. The update icon turns into a red X to drop the scan
 without updating. The agent window is not killed.
 
 Periodic checks default to every 24 hours (bar setting `checkHours`), counted

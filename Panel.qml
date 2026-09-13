@@ -387,18 +387,26 @@ Panel {
                   PanelActionButton {
                     anchors.verticalCenter: parent.verticalCenter
                     opacity: modelData.git === true ? 1 : 0
-                    iconText: "󰚰"
-                    tooltipText: modelData.git !== true ? ""
-                      : (Model.debugForceUpdateButtons() && !modelData.updateAvailable
-                        ? "Debug: force update/scan"
-                        : (!modelData.updateAvailable ? "No upstream commits"
-                          : (root.securityScanOn
-                            ? "Scan with default agent, then update if clear"
-                            : "Update from origin")))
-                    foreground: (modelData.updateAvailable || Model.debugForceUpdateButtons()) ? Color.accent : root.dim
+                    iconText: card._scanning ? "󰅖" : "󰚰"
+                    tooltipText: card._scanning ? "Cancel security scan"
+                      : (modelData.git !== true ? ""
+                        : (Model.debugForceUpdateButtons() && !modelData.updateAvailable
+                          ? "Debug: force update/scan"
+                          : (!modelData.updateAvailable ? "No upstream commits"
+                            : (root.securityScanOn
+                              ? "Scan with default agent, then update if clear"
+                              : "Update from origin"))))
+                    foreground: card._scanning ? Color.urgent
+                      : ((modelData.updateAvailable || Model.debugForceUpdateButtons()) ? Color.accent : root.dim)
                     fontFamily: root.fontFamily
-                    enabled: modelData.git === true && !root.busy && (modelData.updateAvailable === true || Model.debugForceUpdateButtons())
-                    onClicked: if (root.service) root.service.updatePlugin(modelData.id)
+                    enabled: card._scanning || (modelData.git === true && !root.busy && (modelData.updateAvailable === true || Model.debugForceUpdateButtons()))
+                    onClicked: {
+                      if (card._scanning) {
+                        if (root.service) root.service.cancelScan()
+                        return
+                      }
+                      if (root.service) root.service.updatePlugin(modelData.id)
+                    }
                   }
 
                   PanelActionButton {
@@ -433,20 +441,6 @@ Panel {
                     }
                   }
                 }
-              }
-
-              Button {
-                visible: card._scanning
-                anchors.centerIn: parent
-                z: 3
-                text: "Cancel"
-                tooltipText: "Cancel security scan"
-                foreground: Color.urgent
-                accent: Color.urgent
-                fontFamily: root.fontFamily
-                fontSize: Style.font.caption
-                enabled: true
-                onClicked: if (root.service) root.service.cancelScan()
               }
 
               Button {
