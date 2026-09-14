@@ -1,4 +1,6 @@
-# Plugin Manager
+[![Built for Omarchy: Plugin](https://raw.githubusercontent.com/tcballard/omarchy-badges/75975e5b5bf75e7ede3764bcd2950046f7abfe2c/badges/v1/omarchy-plugin.svg)](https://github.com/tcballard/omarchy-badges)
+
+# The Ultimate Plugin Manager
 
 Omarchy bar widget that lists plugins in **Third Party** and **Omarchy**
 tabs. Actions to check for updates, install and update from a git URL, enable/disable, visit
