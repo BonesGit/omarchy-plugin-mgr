@@ -393,7 +393,7 @@ Item {
   }
 
   IpcHandler {
-    target: "io.github.bonesgit.omarchy-plugin-mgr.service"
+    target: "io.github.bonesgit.omarchy-ultimate-plugin-mgr.service"
 
     function reload(): string {
       root.load()

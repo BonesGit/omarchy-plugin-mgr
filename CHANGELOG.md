@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.0
+
+- **Change:** Renamed plugin id to `io.github.bonesgit.omarchy-ultimate-plugin-mgr` and display name to "The Ultimate Plugin Manager". New identity to Omarchy — remove the old install and `omarchy plugin add` the new one; `omarchy plugin update` does not carry across an id change.
+
 ## 1.2.0
 
 - **New:** Install from a git URL in the panel (`+`). Secure Install scans then waits for Approve; Insecure Install adds immediately. New installs never auto-trust.

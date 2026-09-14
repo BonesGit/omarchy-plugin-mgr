@@ -13,7 +13,7 @@ git repo, and remove plugins. With support for an AI prompt to scan for security
 > bottom of the panel. Set **Off**, **Confirm**, or **Trust**
 > at the bottom of the panel. Confirm and Trust need `omarchy default agent` to enable it.
 
-Plugin id: `io.github.bonesgit.omarchy-plugin-mgr`
+Plugin id: `io.github.bonesgit.omarchy-ultimate-plugin-mgr`
 
 ![Plugin Manager](preview.png)
 
@@ -83,13 +83,13 @@ window is not killed on cancel.
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/BonesGit/omarchy-plugin-mgr.git --enable
+omarchy plugin add https://github.com/BonesGit/omarchy-ultimate-plugin-mgr.git --enable
 ```
 
 ## Update
 
 ```bash
-omarchy plugin update io.github.bonesgit.omarchy-plugin-mgr
+omarchy plugin update io.github.bonesgit.omarchy-ultimate-plugin-mgr
 ```
 
 Or use Plugin Manager to update itself.
@@ -97,12 +97,12 @@ Or use Plugin Manager to update itself.
 ## Remove
 
 ```bash
-omarchy plugin remove io.github.bonesgit.omarchy-plugin-mgr
+omarchy plugin remove io.github.bonesgit.omarchy-ultimate-plugin-mgr
 ```
 
 Helper for the terminal:
 
 ```bash
-~/.config/omarchy/plugins/io.github.bonesgit.omarchy-plugin-mgr/bin/plugin-mgr list
-~/.config/omarchy/plugins/io.github.bonesgit.omarchy-plugin-mgr/bin/plugin-mgr check
+~/.config/omarchy/plugins/io.github.bonesgit.omarchy-ultimate-plugin-mgr/bin/plugin-mgr list
+~/.config/omarchy/plugins/io.github.bonesgit.omarchy-ultimate-plugin-mgr/bin/plugin-mgr check
 ```

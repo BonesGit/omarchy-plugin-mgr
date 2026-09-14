@@ -41,7 +41,7 @@ BarWidget {
   function bindService() {
     if (store) return
     if (!bar || !bar.shell || typeof bar.shell.serviceFor !== "function") return
-    var s = bar.shell.serviceFor("io.github.bonesgit.omarchy-plugin-mgr")
+    var s = bar.shell.serviceFor("io.github.bonesgit.omarchy-ultimate-plugin-mgr")
     if (!s) return
     store = s
     s.settings = root.settings
@@ -99,7 +99,7 @@ BarWidget {
   }
 
   IpcHandler {
-    target: "io.github.bonesgit.omarchy-plugin-mgr"
+    target: "io.github.bonesgit.omarchy-ultimate-plugin-mgr"
     function open(): void { root.open() }
     function close(): void { root.close() }
     function show(): void { root.open() }
