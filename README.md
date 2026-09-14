@@ -15,7 +15,8 @@ git repo, and remove plugins. With support for an AI prompt to scan for security
 
 Plugin id: `io.github.bonesgit.omarchy-ultimate-plugin-mgr`
 
-![Plugin Manager](preview.png)
+<img src="warrior.gif" width="492" alt="The Ultimate">
+<img src="preview.png" width="492" alt="Plugin Manager">
 
 ## What it shows
 
