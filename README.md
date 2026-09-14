@@ -50,7 +50,7 @@ Omarchy rows can be enabled or disabled. They cannot be removed or git-updated.
   manifest)
 
 Periodic checks default to every 24 hours (bar setting `checkHours`), counted
-from the last check stored in `~/.local/state/omarchy/plugin-mgr/last-check.json`.
+from the last check stored in `~/.local/state/omarchy/ultimate-plugin-mgr/last-check.json`.
 Shell start and plugin load do not fetch remotes. Right-click the pill, **Check**
 in the panel, or `r` in the panel, runs a check now.
 

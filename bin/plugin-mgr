@@ -6,7 +6,7 @@ export GIT_TERMINAL_PROMPT=0
 export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -oBatchMode=yes}"
 
 PLUGINS_DIR="${HOME}/.config/omarchy/plugins"
-STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/omarchy/plugin-mgr"
+STATE_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/omarchy/ultimate-plugin-mgr"
 CACHE="${STATE_DIR}/last-check.json"
 SCAN_DIR="${STATE_DIR}/scans"
 TREE_DIR="${STATE_DIR}/trees"
